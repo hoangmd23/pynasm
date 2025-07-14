@@ -7,10 +7,22 @@ class LexerError(Exception):
 
 
 KEYWORDS = {
+    # unops
+    'dec',
+    # binops
     'mov',
     'add',
+    'xor',
+    'cmp',
+    # jumps
+    'jne',
+    # registers
     'rax',
     'rbx',
+    'rdx',
+    'rsi',
+    'rcx',
+    'rdi',
 }
 
 
@@ -48,6 +60,11 @@ class Lexer:
 
         while pos < len(code) and code[pos] == ' ':
             pos += 1
+
+        if code[pos] == ';':
+            # skip comment
+            while pos < len(code) and code[pos] != '\n':
+                pos += 1
 
         if code[pos] == '\n':
             # newline
