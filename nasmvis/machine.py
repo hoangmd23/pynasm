@@ -1,7 +1,7 @@
 from collections import defaultdict
 from enum import StrEnum
 
-from nasmvis.common import Register
+from nasmvis.common import Register, Memory
 from nasmvis.parser import Inst, InstType
 
 
@@ -29,6 +29,7 @@ FlagsRegister = [
 
 
 REGISTER_WIDTH = 64
+MEMORY_CAPACITY = 1024
 
 def get_sign_bit(value: int):
     return value >> (REGISTER_WIDTH - 1) & 1
@@ -41,9 +42,13 @@ class Machine:
         self.registers: dict[Register, int] = defaultdict(int)
         self.flags: dict[Flags, bool] = {x: False for x in FlagsRegister if x is not None}
         self.reg_max_value = 2**REGISTER_WIDTH
+        self.memory = bytearray(MEMORY_CAPACITY)
+        self.data_labels: dict[str, int] = {}
 
-    def load_inst(self, inst: list[Inst]) -> None:
+    def load_inst_and_data(self, inst: list[Inst], data: bytearray, data_labels: dict[str, int]) -> None:
         self.inst = inst
+        self.memory[:len(data)] = data
+        self.data_labels = data_labels
         self.reset()
 
     def reset(self) -> None:
@@ -101,11 +106,25 @@ class Machine:
                 dest, src = ops[0], ops[1]
                 match (dest, src):
                     case (Register(), int()):
-                        self.set_register(dest, self.compute_binop(self.registers[dest], src, op))
+                        src_value = src
                     case (Register(), Register()):
-                        self.set_register(dest, self.compute_binop(self.registers[dest], self.registers[src], op))
+                        src_value = self.registers[src]
+                    case (Register(), str()):
+                        src_value = self.data_labels[src]
+                    case (Register(), Memory()):
+                        addr = 0
+                        if isinstance(src.displacement, str):
+                            addr += self.data_labels[src.displacement]
+                        else:
+                            addr += src.displacement
+                        if src.base is not None:
+                            addr += self.registers[src.base]
+                        if src.index is not None:
+                            addr += self.registers[src.index]*src.scale
+                        src_value = self.memory[addr]
                     case _:
                         raise NotImplementedError(f'Binary operator does not support operands {dest}, {src}')
+                self.set_register(dest, self.compute_binop(self.registers[dest], src_value, op))
             case Inst(line, op, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:

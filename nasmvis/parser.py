@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import cast
 
-from nasmvis.common import Register
+
+from nasmvis.common import Register, Memory
 from nasmvis.lexer import Lexer, TokenType
 
 
@@ -19,14 +20,14 @@ class InstType(StrEnum):
     jne = 'jne'
 
 
-type Operand = Register | int
+type Operand = Register | int | str | Memory
 
 
 @dataclass
 class Inst:
     line: int
     type: InstType
-    operands: list[Operand] | None = None
+    operands: list[Operand] | None = field(default_factory=list)
 
 
 def parse_binop(lexer: Lexer, line: int) -> tuple[Operand, Operand]:
@@ -40,11 +41,58 @@ def parse_binop(lexer: Lexer, line: int) -> tuple[Operand, Operand]:
     lexer.expect(TokenType.Comma)
 
     # parse source
-    src = lexer.expect(TokenType.Keyword, TokenType.Number)
+    src = lexer.expect(TokenType.Keyword, TokenType.Number, TokenType.Identifier, TokenType.OpeningSquareBracket)
     if src.type == TokenType.Keyword and src.value in Register:
         src_op = Register(src.value)
     elif src.type == TokenType.Number:
         src_op = int(src.value)
+    elif src.type == TokenType.Identifier:
+        src_op = src.value
+    elif src.type == TokenType.OpeningSquareBracket:
+        memory = Memory()
+        while True:
+            token = lexer.next()
+            match token.type:
+                case TokenType.Keyword if token.value in Register:
+                    if lexer.peek().value == '*':
+                        # index
+                        lexer.next()
+                        if memory.index is not None:
+                            raise ParserError(f'{line}: invalid effective address')
+                        else:
+                            memory.index = Register(token.value)
+                            memory.scale = int(lexer.next().value)
+                    else:
+                        # base or index without scale
+                        # TODO: support adding same registers [rax+rax+rax+rax] = [rax*4]
+                        # TODO: support arithmetic expression [2*10+3*(2+1)]
+                        if memory.base is None:
+                            memory.base = Register(token.value)
+                        elif memory.index is None:
+                            memory.index = Register(token.value)
+                            memory.scale = 1
+                        else:
+                            raise ParserError(f'{line}: invalid effective address')
+                case TokenType.Number | TokenType.Identifier:
+                    if lexer.peek().value == '*':
+                        # index
+                        lexer.next()
+                        reg = lexer.next()
+                        if reg.value in Register:
+                            memory.index = reg.value
+                            memory.scale = int(token.value)
+                        else:
+                            raise ParserError(f'{line}: invalid effective address')
+                    else:
+                        # displacement
+                        memory.displacement = token.value
+            token = lexer.next()
+            if token.value != '+':
+                if token.type != TokenType.ClosingSquareBracket:
+                    raise ParserError(f'{line}: invalid effective address')
+                break
+
+        src_op = memory
     else:
         raise ParserError(f'{line}: Expected source operand to be register or number')
 
@@ -80,12 +128,14 @@ def parse_jne(lexer: Lexer, line: int) -> tuple[Inst, str]:
     return Inst(line, InstType.jne), jmp_label
 
 
-def parse_instructions(code: str, debug: bool = False) -> list[Inst | None]:
+def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None], bytearray, dict[str, int]]:
     lexer = Lexer(code, debug)
     line = 0
     inst: list[Inst | None] = []
     labels: dict[str, int] = {}
     jmp_insts: list[tuple[Inst, str]] = cast(list[tuple[Inst, str]], [])
+    data: bytearray = bytearray()
+    data_labels: dict[str, int] = {}
 
     while True:
         token = lexer.next_or_none()
@@ -97,6 +147,9 @@ def parse_instructions(code: str, debug: bool = False) -> list[Inst | None]:
                 line += 1
             case TokenType.Keyword:
                 match token.value:
+                    case 'section':
+                        lexer.expect(TokenType.Dot)
+                        lexer.expect(TokenType.Keyword)
                     case 'mov':
                         inst.append(parse_mov(lexer, line))
                     case 'add':
@@ -114,19 +167,47 @@ def parse_instructions(code: str, debug: bool = False) -> list[Inst | None]:
                     case _:
                         raise NotImplementedError(f'Keyword {token.value} is not implemented')
             case TokenType.Identifier:
-                # parse label
                 if token.value == 'syscall':
                     pass
                 else:
+                    # parse label
                     label = token.value
-                    lexer.expect(TokenType.Colon)
-                    while True:
-                        token = lexer.peek()
-                        if token.type != TokenType.NewLine:
-                            break
-                        line += 1
-                        lexer.next()
-                    labels[label] = len(inst)
+
+                    # skip colon
+                    if lexer.peek().type == TokenType.Colon:
+                        lexer.expect(TokenType.Colon)
+
+                    if lexer.peek().value == 'db':
+                        # define data
+                        data_labels[label] = len(data)
+                        token = lexer.next()
+                        match token.value:
+                            case 'db':
+                                while True:
+                                    token = lexer.next()
+                                    match token.type:
+                                        case TokenType.String:
+                                            for s in token.value:
+                                                data.append(ord(s))
+                                        case TokenType.Number:
+                                            data.append(int(token.value))
+                                        case _:
+                                            raise NotImplementedError(f'Define data is not implemented for {token.type}')
+                                    if lexer.peek().type == TokenType.Comma:
+                                        lexer.next()
+                                    else:
+                                        break
+                            case _:
+                                raise NotImplementedError(f'{token.value} is not implemented')
+                    else:
+                        # define label
+                        while True:
+                            token = lexer.peek()
+                            if token.type != TokenType.NewLine:
+                                break
+                            line += 1
+                            lexer.next()
+                        labels[label] = len(inst)
             case _:
                 raise NotImplementedError(f'Token type {token.type} ({token.value}) is not implemented')
 
@@ -135,4 +216,4 @@ def parse_instructions(code: str, debug: bool = False) -> list[Inst | None]:
             raise ParserError(f'Label {jmp_label} is not defined')
         jmp_inst.operands = [labels[jmp_label]]
 
-    return inst
+    return inst, data, data_labels

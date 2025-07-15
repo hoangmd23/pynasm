@@ -7,6 +7,11 @@ class LexerError(Exception):
 
 
 KEYWORDS = {
+    # sections
+    'section',
+    'data',
+    'text',
+    'db',
     # unops
     'dec',
     # binops
@@ -23,6 +28,7 @@ KEYWORDS = {
     'rsi',
     'rcx',
     'rdi',
+    'eax',
 }
 
 
