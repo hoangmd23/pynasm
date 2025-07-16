@@ -18,6 +18,8 @@ class InstType(StrEnum):
     cmp = 'cmp'
     dec = 'dec'
     jne = 'jne'
+    push = 'push'
+    pop = 'pop'
 
 
 type Operand = Register | int | str | Memory
@@ -128,6 +130,22 @@ def parse_jne(lexer: Lexer, line: int) -> tuple[Inst, str]:
     return Inst(line, InstType.jne), jmp_label
 
 
+def parse_push(lexer: Lexer, line: int) -> Inst:
+    token = lexer.expect(TokenType.Keyword)
+    if token.value in Register:
+        return Inst(line, InstType.push, [Register(token.value)])
+    else:
+        raise ParserError(f'{line}: Invalid push operand {token.value}')
+
+
+def parse_pop(lexer: Lexer, line: int) -> Inst:
+    token = lexer.expect(TokenType.Keyword)
+    if token.value in Register:
+        return Inst(line, InstType.pop, [Register(token.value)])
+    else:
+        raise ParserError(f'{line}: Invalid pop operand {token.value}')
+
+
 def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None], bytearray, dict[str, int]]:
     lexer = Lexer(code, debug)
     line = 0
@@ -164,6 +182,10 @@ def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None
                         jmp_inst, jmp_label = parse_jne(lexer, line)
                         jmp_insts.append((jmp_inst, jmp_label))
                         inst.append(jmp_inst)
+                    case 'push':
+                        inst.append(parse_push(lexer, line))
+                    case 'pop':
+                        inst.append(parse_pop(lexer, line))
                     case _:
                         raise NotImplementedError(f'Keyword {token.value} is not implemented')
             case TokenType.Identifier:

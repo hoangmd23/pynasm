@@ -26,9 +26,14 @@ KEYWORDS = {
     'rbx',
     'rdx',
     'rsi',
+    'rsp',
+    'rbp',
     'rcx',
     'rdi',
     'eax',
+    # stack
+    'push',
+    'pop',
 }
 
 

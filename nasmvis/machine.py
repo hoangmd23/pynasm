@@ -53,11 +53,14 @@ class Machine:
 
     def reset(self) -> None:
         self.rip = 0
+        self.registers[Register.rbp] = len(self.memory)
+        self.registers[Register.rsp] = len(self.memory)
 
     def set_register(self, reg: Register, value: int):
         self.registers[reg] = value % self.reg_max_value
 
     def compute_binop(self, dest: int, src: int, op: InstType) -> int:
+        # TODO: support registers of different width, are flags set differently?
         match op:
             case InstType.add:
                 res = dest + src
@@ -137,6 +140,27 @@ class Machine:
                             self.rip = operand
                         else:
                             self.rip += 1
+                    case InstType.push:
+                        self.set_register(Register.rsp, self.registers[Register.rsp] - 8)
+                        match operand:
+                            case Register():
+                                for i in range(8):
+                                    self.memory[self.registers[Register.rsp]+i] = self.registers[operand] >> (i * 8) & 0xFF
+                            case _:
+                                raise NotImplementedError(f'Push is not implemented for {operand}')
+                        self.rip += 1
+                    case InstType.pop:
+                        value = 0
+                        for i in range(8):
+                            value += self.memory[self.registers[Register.rsp]+i] << (i * 8)
+                        self.set_register(Register.rsp, self.registers[Register.rsp] + 8)
+
+                        match operand:
+                            case Register():
+                                self.set_register(operand, value)
+                            case _:
+                                raise NotImplementedError(f'Pop is not implemented for {operand}')
+                        self.rip += 1
                     case _:
                         raise NotImplementedError(f'Unary operator {op} is not implemented')
             case _:

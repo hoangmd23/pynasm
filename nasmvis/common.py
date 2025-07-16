@@ -7,6 +7,8 @@ class Register(StrEnum):
     rbx = 'rbx'
     rdx = 'rdx'
     rsi = 'rsi'
+    rsp = 'rsp'
+    rbp = 'rbp'
     rcx = 'rcx'
     rdi = 'rdi'
     eax = 'eax'
