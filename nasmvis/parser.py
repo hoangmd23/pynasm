@@ -7,6 +7,13 @@ from nasmvis.common import Register, Memory
 from nasmvis.lexer import Lexer, TokenType
 
 
+type ParserResult = tuple[int | None, list[Inst | None], bytearray, dict[str, int]]
+type Operand = Register | int | str | Memory
+
+
+ENTRYPOINT = 'main'
+
+
 class ParserError(Exception):
     pass
 
@@ -18,11 +25,11 @@ class InstType(StrEnum):
     cmp = 'cmp'
     dec = 'dec'
     jne = 'jne'
+    call = 'call'
+    ret = 'ret'
+    exit = 'exit'
     push = 'push'
     pop = 'pop'
-
-
-type Operand = Register | int | str | Memory
 
 
 @dataclass
@@ -125,9 +132,9 @@ def parse_dec(lexer: Lexer, line: int) -> Inst:
     return Inst(line, InstType.dec, [dest_op])
 
 
-def parse_jne(lexer: Lexer, line: int) -> tuple[Inst, str]:
+def parse_jmp(lexer: Lexer, line: int, inst_type: InstType) -> tuple[Inst, str]:
     jmp_label = lexer.expect(TokenType.Identifier).value
-    return Inst(line, InstType.jne), jmp_label
+    return Inst(line, inst_type), jmp_label
 
 
 def parse_push(lexer: Lexer, line: int) -> Inst:
@@ -146,7 +153,7 @@ def parse_pop(lexer: Lexer, line: int) -> Inst:
         raise ParserError(f'{line}: Invalid pop operand {token.value}')
 
 
-def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None], bytearray, dict[str, int]]:
+def parse_instructions(code: str, debug: bool = False) -> ParserResult:
     lexer = Lexer(code, debug)
     line = 0
     inst: list[Inst | None] = []
@@ -154,6 +161,7 @@ def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None
     jmp_insts: list[tuple[Inst, str]] = cast(list[tuple[Inst, str]], [])
     data: bytearray = bytearray()
     data_labels: dict[str, int] = {}
+    start_addr: int | None = None
 
     while True:
         token = lexer.next_or_none()
@@ -179,13 +187,21 @@ def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None
                     case 'dec':
                         inst.append(parse_dec(lexer, line))
                     case 'jne':
-                        jmp_inst, jmp_label = parse_jne(lexer, line)
+                        jmp_inst, jmp_label = parse_jmp(lexer, line, InstType.jne)
                         jmp_insts.append((jmp_inst, jmp_label))
                         inst.append(jmp_inst)
                     case 'push':
                         inst.append(parse_push(lexer, line))
                     case 'pop':
                         inst.append(parse_pop(lexer, line))
+                    case 'call':
+                        jmp_inst, jmp_label = parse_jmp(lexer, line, InstType.call)
+                        jmp_insts.append((jmp_inst, jmp_label))
+                        inst.append(jmp_inst)
+                    case 'ret':
+                        inst.append(Inst(line, InstType.ret))
+                    case 'exit':
+                        inst.append(Inst(line, InstType.exit))
                     case _:
                         raise NotImplementedError(f'Keyword {token.value} is not implemented')
             case TokenType.Identifier:
@@ -230,6 +246,8 @@ def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None
                             line += 1
                             lexer.next()
                         labels[label] = len(inst)
+                        if start_addr is None and label == ENTRYPOINT:
+                            start_addr = len(inst)
             case _:
                 raise NotImplementedError(f'Token type {token.type} ({token.value}) is not implemented')
 
@@ -238,4 +256,4 @@ def parse_instructions(code: str, debug: bool = False) -> tuple[list[Inst | None
             raise ParserError(f'Label {jmp_label} is not defined')
         jmp_inst.operands = [labels[jmp_label]]
 
-    return inst, data, data_labels
+    return start_addr, inst, data, data_labels

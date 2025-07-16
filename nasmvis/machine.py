@@ -5,6 +5,10 @@ from nasmvis.common import Register, Memory
 from nasmvis.parser import Inst, InstType
 
 
+class MachineException(Exception):
+    pass
+
+
 class Flags(StrEnum):
     CF = 'CF'
     ZF = 'ZF'
@@ -44,17 +48,21 @@ class Machine:
         self.reg_max_value = 2**REGISTER_WIDTH
         self.memory = bytearray(MEMORY_CAPACITY)
         self.data_labels: dict[str, int] = {}
+        self.entrypoint: int = -1
+        self.running: bool = False
 
-    def load_inst_and_data(self, inst: list[Inst], data: bytearray, data_labels: dict[str, int]) -> None:
+    def load_inst_and_data(self, entrypoint: int, inst: list[Inst], data: bytearray, data_labels: dict[str, int]) -> None:
         self.inst = inst
         self.memory[:len(data)] = data
         self.data_labels = data_labels
+        self.entrypoint = entrypoint
         self.reset()
 
     def reset(self) -> None:
-        self.rip = 0
+        self.rip = self.entrypoint
         self.registers[Register.rbp] = len(self.memory)
         self.registers[Register.rsp] = len(self.memory)
+        self.running = True
 
     def set_register(self, reg: Register, value: int):
         self.registers[reg] = value % self.reg_max_value
@@ -97,8 +105,22 @@ class Machine:
                 raise NotImplementedError(f'Binary operator {op} is not implemented')
         return res
 
+    def push_onto_stack(self, value: int) -> None:
+        self.set_register(Register.rsp, self.registers[Register.rsp] - 8)
+        for i in range(8):
+            self.memory[self.registers[Register.rsp] + i] = value >> (i * 8) & 0xFF
+
+    def pop_from_stack(self) -> int:
+        if self.registers[Register.rsp] >= len(self.memory):
+            raise MachineException(f'Stack underflow')
+        value = 0
+        for i in range(8):
+            value += self.memory[self.registers[Register.rsp] + i] << (i * 8)
+        self.set_register(Register.rsp, self.registers[Register.rsp] + 8)
+        return value
+
     def step(self) -> bool:
-        if self.rip >= len(self.inst):
+        if not self.running:
             return False
 
         inst = self.inst[self.rip]
@@ -141,29 +163,33 @@ class Machine:
                         else:
                             self.rip += 1
                     case InstType.push:
-                        self.set_register(Register.rsp, self.registers[Register.rsp] - 8)
                         match operand:
                             case Register():
-                                for i in range(8):
-                                    self.memory[self.registers[Register.rsp]+i] = self.registers[operand] >> (i * 8) & 0xFF
+                                self.push_onto_stack(self.registers[operand])
                             case _:
                                 raise NotImplementedError(f'Push is not implemented for {operand}')
                         self.rip += 1
                     case InstType.pop:
-                        value = 0
-                        for i in range(8):
-                            value += self.memory[self.registers[Register.rsp]+i] << (i * 8)
-                        self.set_register(Register.rsp, self.registers[Register.rsp] + 8)
-
+                        value = self.pop_from_stack()
                         match operand:
                             case Register():
                                 self.set_register(operand, value)
                             case _:
                                 raise NotImplementedError(f'Pop is not implemented for {operand}')
                         self.rip += 1
+                    case InstType.call:
+                        self.push_onto_stack(self.rip + 1)
+                        self.rip = operand
                     case _:
                         raise NotImplementedError(f'Unary operator {op} is not implemented')
+            case Inst(line, InstType.ret, _):
+                self.rip = self.pop_from_stack()
+            case Inst(line, InstType.exit, _):
+                self.running = False
             case _:
                 raise NotImplementedError(f'Instruction {inst.type} is not implemented')
+
+        if self.rip >= len(self.inst):
+            self.running = False
 
         return True

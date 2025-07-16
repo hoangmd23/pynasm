@@ -31,6 +31,9 @@ KEYWORDS = {
     'rcx',
     'rdi',
     'eax',
+    'call',
+    'ret',
+    'exit',
     # stack
     'push',
     'pop',
