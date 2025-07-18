@@ -3,15 +3,13 @@ from enum import StrEnum
 from typing import cast
 
 
-from nasmvis.common import Register, Memory
+from nasmvis.common import Register, Operand, Registers, RegisterOp, MemoryOp
 from nasmvis.lexer import Lexer, TokenType
 
 
 type ParserResult = tuple[int | None, list[Inst | None], bytearray, dict[str, int]]
-type Operand = Register | int | str | Memory
-
-
 ENTRYPOINT = 'main'
+register_names = set(name for r in Registers for name in (r.r64, r.r32, r.r16, r.rh, r.rl))
 
 
 class ParserError(Exception):
@@ -42,44 +40,53 @@ class Inst:
 def parse_binop(lexer: Lexer, line: int) -> tuple[Operand, Operand]:
     # parse destination
     dest = lexer.expect(TokenType.Keyword).value
-    if dest not in Register:
+    if dest not in register_names:
         raise ParserError(f'{line}: Unexpected destination operand {dest}')
-    dest_op = Register(dest)
+    dest_op = RegisterOp(dest)
 
     # parse comma
     lexer.expect(TokenType.Comma)
 
     # parse source
     src = lexer.expect(TokenType.Keyword, TokenType.Number, TokenType.Identifier, TokenType.OpeningSquareBracket)
-    if src.type == TokenType.Keyword and src.value in Register:
-        src_op = Register(src.value)
+    if src.type == TokenType.Keyword and src.value in register_names:
+        src_op = RegisterOp(src.value)
     elif src.type == TokenType.Number:
         src_op = int(src.value)
     elif src.type == TokenType.Identifier:
         src_op = src.value
     elif src.type == TokenType.OpeningSquareBracket:
-        memory = Memory()
+        memory = MemoryOp()
         while True:
             token = lexer.next()
             match token.type:
-                case TokenType.Keyword if token.value in Register:
+                case TokenType.Keyword if token.value in register_names:
                     if lexer.peek().value == '*':
                         # index
                         lexer.next()
                         if memory.index is not None:
                             raise ParserError(f'{line}: invalid effective address')
                         else:
-                            memory.index = Register(token.value)
-                            memory.scale = int(lexer.next().value)
+                            if token.value in register_names:
+                                memory.index = token.value
+                                memory.scale = int(lexer.next().value)
+                            else:
+                                raise ParserError(f'{line}: index in effective address is not a register')
                     else:
                         # base or index without scale
                         # TODO: support adding same registers [rax+rax+rax+rax] = [rax*4]
                         # TODO: support arithmetic expression [2*10+3*(2+1)]
                         if memory.base is None:
-                            memory.base = Register(token.value)
+                            if token.value in register_names:
+                                memory.base = token.value
+                            else:
+                                raise ParserError(f'{line}: base in effective address is not a register')
                         elif memory.index is None:
-                            memory.index = Register(token.value)
-                            memory.scale = 1
+                            if token.value in register_names:
+                                memory.index = token.value
+                                memory.scale = 1
+                            else:
+                                raise ParserError(f'{line}: index in effective address is not a register')
                         else:
                             raise ParserError(f'{line}: invalid effective address')
                 case TokenType.Number | TokenType.Identifier:
@@ -126,9 +133,9 @@ def parse_cmp(lexer: Lexer, line: int) -> Inst:
 
 def parse_dec(lexer: Lexer, line: int) -> Inst:
     dest = lexer.expect(TokenType.Keyword).value
-    if dest not in Register:
+    if dest not in register_names:
         raise ParserError(f'{line}: Unexpected destination operand {dest}')
-    dest_op = Register(dest)
+    dest_op = RegisterOp(dest)
     return Inst(line, InstType.dec, [dest_op])
 
 
@@ -139,16 +146,16 @@ def parse_jmp(lexer: Lexer, line: int, inst_type: InstType) -> tuple[Inst, str]:
 
 def parse_push(lexer: Lexer, line: int) -> Inst:
     token = lexer.expect(TokenType.Keyword)
-    if token.value in Register:
-        return Inst(line, InstType.push, [Register(token.value)])
+    if token.value in register_names:
+        return Inst(line, InstType.push, [RegisterOp(token.value)])
     else:
         raise ParserError(f'{line}: Invalid push operand {token.value}')
 
 
 def parse_pop(lexer: Lexer, line: int) -> Inst:
     token = lexer.expect(TokenType.Keyword)
-    if token.value in Register:
-        return Inst(line, InstType.pop, [Register(token.value)])
+    if token.value in register_names:
+        return Inst(line, InstType.pop, [RegisterOp(token.value)])
     else:
         raise ParserError(f'{line}: Invalid pop operand {token.value}')
 

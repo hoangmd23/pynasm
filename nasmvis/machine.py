@@ -1,8 +1,10 @@
-from collections import defaultdict
 from enum import StrEnum
 
-from nasmvis.common import Register, Memory
+from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp
 from nasmvis.parser import Inst, InstType
+
+
+type RegisterType = R64 | R32 | R16 | RH | RL
 
 
 class MachineException(Exception):
@@ -39,11 +41,27 @@ def get_sign_bit(value: int):
     return value >> (REGISTER_WIDTH - 1) & 1
 
 
+def get_reg_by_name(name: str) -> RegisterType:
+    if name in R64:
+        reg = R64(name)
+    elif name in R32:
+        reg = R32(name)
+    elif name in R16:
+        reg = R16(name)
+    elif name in RH:
+        reg = RH(name)
+    elif name in RL:
+        reg = RL(name)
+    else:
+        raise MachineException(f'Unknown register: {name}')
+    return reg
+
+
 class Machine:
     def __init__(self):
         self.inst: list[Inst | None] = []
         self.rip: int = 0
-        self.registers: dict[Register, int] = defaultdict(int)
+        self.registers: dict[R64, Register] = { r.r64: r for r in Registers }
         self.flags: dict[Flags, bool] = {x: False for x in FlagsRegister if x is not None}
         self.reg_max_value = 2**REGISTER_WIDTH
         self.memory = bytearray(MEMORY_CAPACITY)
@@ -60,12 +78,28 @@ class Machine:
 
     def reset(self) -> None:
         self.rip = self.entrypoint
-        self.registers[Register.rbp] = len(self.memory)
-        self.registers[Register.rsp] = len(self.memory)
+        self.set_register(R64.rbp, len(self.memory))
+        self.set_register(R64.rsp, len(self.memory))
         self.running = True
 
-    def set_register(self, reg: Register, value: int):
-        self.registers[reg] = value % self.reg_max_value
+    def set_register(self, reg: R64 | R32 | R16 | RH | RL | str, value: int):
+        if isinstance(reg, str):
+            reg = get_reg_by_name(reg)
+        match reg:
+            case R64():
+                self.registers[reg].value = value % self.reg_max_value
+            case _:
+                raise NotImplementedError(f'{reg.__class__} is not implemented for set_register')
+
+    def get_register(self, reg: R64 | R32 | R16 | RH | RL | str) -> int:
+        if isinstance(reg, str):
+            reg = get_reg_by_name(reg)
+        match reg:
+            case R64():
+                return self.registers[reg].value
+            case _:
+                raise NotImplementedError(f'{reg.__class__} is not implemented for get_register')
+
 
     def compute_binop(self, dest: int, src: int, op: InstType) -> int:
         # TODO: support registers of different width, are flags set differently?
@@ -106,17 +140,17 @@ class Machine:
         return res
 
     def push_onto_stack(self, value: int) -> None:
-        self.set_register(Register.rsp, self.registers[Register.rsp] - 8)
+        self.set_register(R64.rsp, self.get_register(R64.rsp) - 8)
         for i in range(8):
-            self.memory[self.registers[Register.rsp] + i] = value >> (i * 8) & 0xFF
+            self.memory[self.get_register(R64.rsp) + i] = value >> (i * 8) & 0xFF
 
     def pop_from_stack(self) -> int:
-        if self.registers[Register.rsp] >= len(self.memory):
+        if self.get_register(R64.rsp) >= len(self.memory):
             raise MachineException(f'Stack underflow')
         value = 0
         for i in range(8):
-            value += self.memory[self.registers[Register.rsp] + i] << (i * 8)
-        self.set_register(Register.rsp, self.registers[Register.rsp] + 8)
+            value += self.memory[self.get_register(R64.rsp) + i] << (i * 8)
+        self.set_register(R64.rsp, self.get_register(R64.rsp) + 8)
         return value
 
     def step(self) -> bool:
@@ -130,32 +164,32 @@ class Machine:
                 self.rip += 1
                 dest, src = ops[0], ops[1]
                 match (dest, src):
-                    case (Register(), int()):
+                    case (RegisterOp(), int()):
                         src_value = src
-                    case (Register(), Register()):
-                        src_value = self.registers[src]
-                    case (Register(), str()):
+                    case (RegisterOp(), RegisterOp()):
+                        src_value = self.get_register(src.name)
+                    case (RegisterOp(), str()):
                         src_value = self.data_labels[src]
-                    case (Register(), Memory()):
+                    case (RegisterOp(), MemoryOp()):
                         addr = 0
                         if isinstance(src.displacement, str):
                             addr += self.data_labels[src.displacement]
                         else:
                             addr += src.displacement
                         if src.base is not None:
-                            addr += self.registers[src.base]
+                            addr += self.get_register(src.base)
                         if src.index is not None:
-                            addr += self.registers[src.index]*src.scale
+                            addr += self.get_register(src.index)*src.scale
                         src_value = self.memory[addr]
                     case _:
-                        raise NotImplementedError(f'Binary operator does not support operands {dest}, {src}')
-                self.set_register(dest, self.compute_binop(self.registers[dest], src_value, op))
+                        raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}')
+                self.set_register(dest.name, self.compute_binop(self.get_register(dest.name), src_value, op))
             case Inst(line, op, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
                     case InstType.dec:
-                        assert isinstance(operand, Register)
-                        self.set_register(operand, self.registers[operand]-1)
+                        assert isinstance(operand, RegisterOp)
+                        self.set_register(operand.name, self.get_register(operand.name)-1)
                         self.rip += 1
                     case InstType.jne:
                         if self.flags[Flags.ZF] == 0:
@@ -165,9 +199,9 @@ class Machine:
                     case InstType.push:
                         match operand:
                             case Register():
-                                self.push_onto_stack(self.registers[operand])
+                                self.push_onto_stack(self.get_register(operand.name))
                             case _:
-                                raise NotImplementedError(f'Push is not implemented for {operand}')
+                                raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
                         self.rip += 1
                     case InstType.pop:
                         value = self.pop_from_stack()
@@ -175,16 +209,16 @@ class Machine:
                             case Register():
                                 self.set_register(operand, value)
                             case _:
-                                raise NotImplementedError(f'Pop is not implemented for {operand}')
+                                raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.rip += 1
                     case InstType.call:
                         self.push_onto_stack(self.rip + 1)
                         self.rip = operand
                     case _:
-                        raise NotImplementedError(f'Unary operator {op} is not implemented')
-            case Inst(line, InstType.ret, _):
+                        raise NotImplementedError(f'{line}: Unary operator {op} is not implemented')
+            case Inst(_, InstType.ret, _):
                 self.rip = self.pop_from_stack()
-            case Inst(line, InstType.exit, _):
+            case Inst(_, InstType.exit, _):
                 self.running = False
             case _:
                 raise NotImplementedError(f'Instruction {inst.type} is not implemented')
