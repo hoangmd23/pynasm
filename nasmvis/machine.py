@@ -119,18 +119,26 @@ class Machine:
 
     def reset(self) -> None:
         self.rip = self.entrypoint
-        self.set_register(R64.rbp, len(self.memory))
-        self.set_register(R64.rsp, len(self.memory))
+        self.set_register(R64.rbp, len(self.memory), False)
+        self.set_register(R64.rsp, len(self.memory), False)
         self.running = True
 
-    def set_register(self, reg: R64 | R32 | R16 | RH | RL | str, value: int):
+    def set_register(self, reg: R64 | R32 | R16 | RH | RL | str, value: int, clear_upper_bits: bool):
         if isinstance(reg, str):
             reg = get_reg_by_name(reg)
         match reg:
             case R64():
                 self.reg64[reg].value = value % R64_MAX_VALUE
             case R32():
-                self.reg32[reg].value = value % R32_MAX_VALUE
+                if clear_upper_bits:
+                    self.reg32[reg].value = 0
+                self.reg32[reg].value = (self.reg32[reg].value & 0xFFFFFFFF00000000) | (value % R32_MAX_VALUE)
+            case R16():
+                self.reg16[reg].value = (self.reg16[reg].value & 0xFFFFFFFFFFFF0000) | (value % R16_MAX_VALUE)
+            case RH():
+                self.reg8h[reg].value = (self.reg8h[reg].value & 0xFFFFFFFFFFFF00FF) | ((value % R8_MAX_VALUE) << 8)
+            case RL():
+                self.reg8l[reg].value = (self.reg8l[reg].value & 0xFFFFFFFFFFFFFF00) | (value % R8_MAX_VALUE)
             case _:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for set_register')
 
@@ -142,12 +150,20 @@ class Machine:
                 return self.reg64[reg].value
             case R32():
                 return self.reg32[reg].value & 0xFFFFFFFF
+            case R16():
+                return self.reg16[reg].value & 0xFFFF
+            case RH():
+                return (self.reg8h[reg].value & 0xFFFF) >> 8
+            case RL():
+                return self.reg8l[reg].value & 0xFF
             case _:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for get_register')
 
 
-    def compute_binop(self, dest: int, src: int, op: InstType, max_value: int, reg_width: int) -> int:
+    def compute_binop(self, dest: int, src: int, op: InstType, max_value: int, reg_width: int) -> tuple[int, bool]:
         # TODO: support registers of different width, are flags set differently?
+        # some operations on a 32-bit register clear the upper 32 bits of the corresponding 64-bit register
+        clear_upper_bits = False
         match op:
             case InstType.add:
                 res = dest + src
@@ -166,8 +182,10 @@ class Machine:
                 self.flags[Flags.CF] = False
                 self.flags[Flags.OF] = False
                 res = dest ^ src
+                clear_upper_bits = True
             case InstType.mov:
                 res = src
+                clear_upper_bits = True
             case InstType.cmp | InstType.sub:
                 res = dest - src
                 res_sign = get_sign_bit(res, reg_width)
@@ -181,9 +199,10 @@ class Machine:
                 self.flags[Flags.OF] = (True if dest_sign != src_sign and res_sign != dest_sign else False)
                 if op == InstType.cmp:
                     res = dest
+                clear_upper_bits = True
             case _:
                 raise NotImplementedError(f'Binary operator {op} is not implemented')
-        return res
+        return res, clear_upper_bits
 
     def push_onto_stack(self, value: int) -> None:
         self.set_register(R64.rsp, self.get_register(R64.rsp) - 8)
@@ -237,7 +256,8 @@ class Machine:
                         reg_width = get_reg_width(dest)
                     case _:
                         raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}')
-                self.set_register(dest.name, self.compute_binop(self.get_register(dest.name), src_value, op, reg_max_value, reg_width))
+                res, clear_upper_bits = self.compute_binop(self.get_register(dest.name), src_value, op, reg_max_value, reg_width)
+                self.set_register(dest.name, res, clear_upper_bits)
             case Inst(line, op, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
