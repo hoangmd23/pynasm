@@ -21,9 +21,11 @@ class Inst:
     operands: list[Operand] | None = field(default_factory=list)
 
 
-def parse_binop(lexer: Lexer, line: int) -> tuple[Operand, Operand]:
+def parse_binop(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> tuple[Operand, Operand]:
     # parse destination
     dest = lexer.expect(TokenType.Keyword).value
+    if dest in equ_labels:
+        dest = equ_labels[dest]
     if dest not in register_names:
         raise ParserError(f'{line}: Unexpected destination operand {dest}')
     dest_op = RegisterOp(dest)
@@ -33,12 +35,16 @@ def parse_binop(lexer: Lexer, line: int) -> tuple[Operand, Operand]:
 
     # parse source
     src = lexer.expect(TokenType.Keyword, TokenType.Number, TokenType.Identifier, TokenType.OpeningSquareBracket)
+
     if src.type == TokenType.Keyword and src.value in register_names:
         src_op = RegisterOp(src.value)
     elif src.type == TokenType.Number:
         src_op = int(src.value)
     elif src.type == TokenType.Identifier:
-        src_op = src.value
+        if src.value in equ_labels:
+            src_op = int(equ_labels[src.value])
+        else:
+            src_op = src.value
     elif src.type == TokenType.OpeningSquareBracket:
         memory = MemoryOp()
         while True:
@@ -99,28 +105,30 @@ def parse_binop(lexer: Lexer, line: int) -> tuple[Operand, Operand]:
     return dest_op, src_op
 
 
-def parse_mov(lexer: Lexer, line: int) -> Inst:
-    return Inst(line, InstType.mov, [*parse_binop(lexer, line)])
+def parse_mov(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, InstType.mov, [*parse_binop(lexer, line, equ_labels)])
 
 
-def parse_add(lexer: Lexer, line: int) -> Inst:
-    return Inst(line, InstType.add, [*parse_binop(lexer, line)])
+def parse_add(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, InstType.add, [*parse_binop(lexer, line, equ_labels)])
 
 
-def parse_sub(lexer: Lexer, line: int) -> Inst:
-    return Inst(line, InstType.sub, [*parse_binop(lexer, line)])
+def parse_sub(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, InstType.sub, [*parse_binop(lexer, line, equ_labels)])
 
 
-def parse_xor(lexer: Lexer, line: int) -> Inst:
-    return Inst(line, InstType.xor, [*parse_binop(lexer, line)])
+def parse_xor(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, InstType.xor, [*parse_binop(lexer, line, equ_labels)])
 
 
-def parse_cmp(lexer: Lexer, line: int) -> Inst:
-    return Inst(line, InstType.cmp, [*parse_binop(lexer, line)])
+def parse_cmp(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, InstType.cmp, [*parse_binop(lexer, line, equ_labels)])
 
 
-def parse_dec(lexer: Lexer, line: int) -> Inst:
+def parse_dec(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
     dest = lexer.expect(TokenType.Keyword).value
+    if dest in equ_labels:
+        dest = equ_labels[dest]
     if dest not in register_names:
         raise ParserError(f'{line}: Unexpected destination operand {dest}')
     dest_op = RegisterOp(dest)
@@ -132,12 +140,14 @@ def parse_jmp(lexer: Lexer, line: int, inst_type: InstType) -> tuple[Inst, str]:
     return Inst(line, inst_type), jmp_label
 
 
-def parse_push(lexer: Lexer, line: int) -> Inst:
-    token = lexer.expect(TokenType.Keyword)
-    if token.value in register_names:
-        return Inst(line, InstType.push, [RegisterOp(token.value)])
+def parse_push(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+    value = lexer.expect(TokenType.Keyword).value
+    if value in equ_labels:
+        value = equ_labels[value]
+    if value in register_names:
+        return Inst(line, InstType.push, [RegisterOp(value)])
     else:
-        raise ParserError(f'{line}: Invalid push operand {token.value}')
+        raise ParserError(f'{line}: Invalid push operand {value}')
 
 
 def parse_pop(lexer: Lexer, line: int) -> Inst:
@@ -156,6 +166,7 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
     jmp_insts: list[tuple[Inst, str]] = cast(list[tuple[Inst, str]], [])
     data: bytearray = bytearray()
     data_labels: dict[str, int] = {}
+    equ_labels: dict[str, str] = {}
     start_addr: int | None = None
 
     while True:
@@ -173,23 +184,23 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                         lexer.expect(TokenType.Keyword)
                     case 'mov':
                         # TODO: add support for hex numbers
-                        inst.append(parse_mov(lexer, line))
+                        inst.append(parse_mov(lexer, line, equ_labels))
                     case 'add':
-                        inst.append(parse_add(lexer, line))
+                        inst.append(parse_add(lexer, line, equ_labels))
                     case 'sub':
-                        inst.append(parse_sub(lexer, line))
+                        inst.append(parse_sub(lexer, line, equ_labels))
                     case 'xor':
-                        inst.append(parse_xor(lexer, line))
+                        inst.append(parse_xor(lexer, line, equ_labels))
                     case 'cmp':
-                        inst.append(parse_cmp(lexer, line))
+                        inst.append(parse_cmp(lexer, line, equ_labels))
                     case 'dec':
-                        inst.append(parse_dec(lexer, line))
+                        inst.append(parse_dec(lexer, line, equ_labels))
                     case 'jne':
                         jmp_inst, jmp_label = parse_jmp(lexer, line, InstType.jne)
                         jmp_insts.append((jmp_inst, jmp_label))
                         inst.append(jmp_inst)
                     case 'push':
-                        inst.append(parse_push(lexer, line))
+                        inst.append(parse_push(lexer, line, equ_labels))
                     case 'pop':
                         inst.append(parse_pop(lexer, line))
                     case 'call':
@@ -213,39 +224,44 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                     if lexer.peek().type == TokenType.Colon:
                         lexer.expect(TokenType.Colon)
 
-                    if lexer.peek().value == 'db':
-                        # define data
-                        data_labels[label] = len(data)
-                        token = lexer.next()
-                        match token.value:
-                            case 'db':
-                                while True:
-                                    token = lexer.next()
-                                    match token.type:
-                                        case TokenType.String:
-                                            for s in token.value:
-                                                data.append(ord(s))
-                                        case TokenType.Number:
-                                            data.append(int(token.value))
-                                        case _:
-                                            raise NotImplementedError(f'Define data is not implemented for {token.type}')
-                                    if lexer.peek().type == TokenType.Comma:
-                                        lexer.next()
-                                    else:
-                                        break
-                            case _:
-                                raise NotImplementedError(f'{token.value} is not implemented')
-                    else:
-                        # define label
-                        while True:
-                            token = lexer.peek()
-                            if token.type != TokenType.NewLine:
-                                break
-                            line += 1
-                            lexer.next()
-                        labels[label] = len(inst)
-                        if start_addr is None and label == ENTRYPOINT:
-                            start_addr = len(inst)
+                    match lexer.peek().value:
+                        case 'db':
+                            # define data
+                            data_labels[label] = len(data)
+                            token = lexer.next()
+                            match token.value:
+                                case 'db':
+                                    while True:
+                                        token = lexer.next()
+                                        match token.type:
+                                            case TokenType.String:
+                                                for s in token.value:
+                                                    data.append(ord(s))
+                                            case TokenType.Number:
+                                                data.append(int(token.value))
+                                            case _:
+                                                raise NotImplementedError(f'Define data is not implemented for {token.type}')
+                                        if lexer.peek().type == TokenType.Comma:
+                                            lexer.next()
+                                        else:
+                                            break
+                                case _:
+                                    raise NotImplementedError(f'{token.value} is not implemented')
+                        case 'equ':
+                            # TODO: currently only support numbers
+                            lexer.expect(TokenType.Keyword) # consume equ
+                            equ_labels[label] = lexer.expect(TokenType.Number).value
+                        case _:
+                            # define label
+                            while True:
+                                token = lexer.peek()
+                                if token.type != TokenType.NewLine:
+                                    break
+                                line += 1
+                                lexer.next()
+                            labels[label] = len(inst)
+                            if start_addr is None and label == ENTRYPOINT:
+                                start_addr = len(inst)
             case _:
                 raise NotImplementedError(f'Token type {token.type} ({token.value}) is not implemented')
 

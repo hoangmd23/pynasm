@@ -12,33 +12,10 @@ KEYWORDS = {
     # sections
     'section',
     'data',
+    'equ',
     'text',
     'db',
-    # unops
-    # 'dec',
-    # binops
-    # 'mov',
-    # 'add',
-    # 'xor',
-    # 'cmp',
-    # jumps
-    # 'jne',
-    # registers
-    # 'rax',
-    # 'rbx',
-    # 'rdx',
-    # 'rsi',
-    # 'rsp',
-    # 'rbp',
-    # 'rcx',
-    # 'rdi',
-    # 'eax',
-    # 'call',
-    # 'ret',
     'exit',
-    # stack
-    # 'push',
-    # 'pop',
 }
 
 # noinspection PyUnresolvedReferences
