@@ -21,14 +21,74 @@ class Inst:
     operands: list[Operand] | None = field(default_factory=list)
 
 
+# does not expect opening bracket, but consumes closing bracket
+def parse_memory_op(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> MemoryOp:
+    memory = MemoryOp()
+    while True:
+        token = lexer.next()
+        match token.type:
+            case TokenType.Keyword if token.value in register_names:
+                if lexer.peek().value == '*':
+                    # index
+                    lexer.next()
+                    if memory.index is not None:
+                        raise ParserError(f'{line}: invalid effective address')
+                    else:
+                        if token.value in register_names:
+                            memory.index = token.value
+                            memory.scale = int(lexer.next().value)
+                        else:
+                            raise ParserError(f'{line}: index in effective address is not a register')
+                else:
+                    # base or index without scale
+                    # TODO: support adding same registers [rax+rax+rax+rax] = [rax*4]
+                    # TODO: support arithmetic expression [2*10+3*(2+1)]
+                    if memory.base is None:
+                        if token.value in register_names:
+                            memory.base = token.value
+                        else:
+                            raise ParserError(f'{line}: base in effective address is not a register')
+                    elif memory.index is None:
+                        if token.value in register_names:
+                            memory.index = token.value
+                            memory.scale = 1
+                        else:
+                            raise ParserError(f'{line}: index in effective address is not a register')
+                    else:
+                        raise ParserError(f'{line}: invalid effective address')
+            case TokenType.Number | TokenType.Identifier:
+                if lexer.peek().value == '*':
+                    # index
+                    lexer.next()
+                    reg = lexer.next()
+                    if reg.value in Register:
+                        memory.index = reg.value
+                        memory.scale = int(token.value)
+                    else:
+                        raise ParserError(f'{line}: invalid effective address')
+                else:
+                    # displacement
+                    if token.value in equ_labels:
+                        memory.displacement = int(equ_labels[token.value])
+                    else:
+                        memory.displacement = int(token.value)
+        token = lexer.next()
+        if token.value != '+':
+            if token.type != TokenType.ClosingSquareBracket:
+                raise ParserError(f'{line}: invalid effective address')
+            break
+    return memory
+
+
 def parse_binop(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> tuple[Operand, Operand]:
     # parse destination
-    dest = lexer.expect(TokenType.Keyword).value
-    if dest in equ_labels:
-        dest = equ_labels[dest]
-    if dest not in register_names:
-        raise ParserError(f'{line}: Unexpected destination operand {dest}')
-    dest_op = RegisterOp(dest)
+    dest = lexer.expect(TokenType.Keyword, TokenType.OpeningSquareBracket)
+    if dest.type == TokenType.Keyword and dest.value in register_names:
+        dest_op = RegisterOp(dest.value)
+    elif dest.type == TokenType.OpeningSquareBracket:
+        dest_op = parse_memory_op(lexer, line, equ_labels)
+    else:
+        raise ParserError(f'{line}: Invalid destination operand')
 
     # parse comma
     lexer.expect(TokenType.Comma)
@@ -46,61 +106,9 @@ def parse_binop(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> tuple[Op
         else:
             src_op = src.value
     elif src.type == TokenType.OpeningSquareBracket:
-        memory = MemoryOp()
-        while True:
-            token = lexer.next()
-            match token.type:
-                case TokenType.Keyword if token.value in register_names:
-                    if lexer.peek().value == '*':
-                        # index
-                        lexer.next()
-                        if memory.index is not None:
-                            raise ParserError(f'{line}: invalid effective address')
-                        else:
-                            if token.value in register_names:
-                                memory.index = token.value
-                                memory.scale = int(lexer.next().value)
-                            else:
-                                raise ParserError(f'{line}: index in effective address is not a register')
-                    else:
-                        # base or index without scale
-                        # TODO: support adding same registers [rax+rax+rax+rax] = [rax*4]
-                        # TODO: support arithmetic expression [2*10+3*(2+1)]
-                        if memory.base is None:
-                            if token.value in register_names:
-                                memory.base = token.value
-                            else:
-                                raise ParserError(f'{line}: base in effective address is not a register')
-                        elif memory.index is None:
-                            if token.value in register_names:
-                                memory.index = token.value
-                                memory.scale = 1
-                            else:
-                                raise ParserError(f'{line}: index in effective address is not a register')
-                        else:
-                            raise ParserError(f'{line}: invalid effective address')
-                case TokenType.Number | TokenType.Identifier:
-                    if lexer.peek().value == '*':
-                        # index
-                        lexer.next()
-                        reg = lexer.next()
-                        if reg.value in Register:
-                            memory.index = reg.value
-                            memory.scale = int(token.value)
-                        else:
-                            raise ParserError(f'{line}: invalid effective address')
-                    else:
-                        # displacement
-                        memory.displacement = token.value
-            token = lexer.next()
-            if token.value != '+':
-                if token.type != TokenType.ClosingSquareBracket:
-                    raise ParserError(f'{line}: invalid effective address')
-                break
-
-        src_op = memory
+        src_op = parse_memory_op(lexer, line, equ_labels)
     else:
-        raise ParserError(f'{line}: Expected source operand to be register or number')
+        raise ParserError(f'{line}: Invalid source operand')
 
     return dest_op, src_op
 
@@ -133,6 +141,16 @@ def parse_dec(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
         raise ParserError(f'{line}: Unexpected destination operand {dest}')
     dest_op = RegisterOp(dest)
     return Inst(line, InstType.dec, [dest_op])
+
+
+def parse_inc(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+    dest = lexer.expect(TokenType.Keyword).value
+    if dest in equ_labels:
+        dest = equ_labels[dest]
+    if dest not in register_names:
+        raise ParserError(f'{line}: Unexpected destination operand {dest}')
+    dest_op = RegisterOp(dest)
+    return Inst(line, InstType.inc, [dest_op])
 
 
 def parse_jmp(lexer: Lexer, line: int, inst_type: InstType) -> tuple[Inst, str]:
@@ -193,10 +211,12 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                         inst.append(parse_xor(lexer, line, equ_labels))
                     case 'cmp':
                         inst.append(parse_cmp(lexer, line, equ_labels))
+                    case 'inc':
+                        inst.append(parse_inc(lexer, line, equ_labels))
                     case 'dec':
                         inst.append(parse_dec(lexer, line, equ_labels))
-                    case 'jne':
-                        jmp_inst, jmp_label = parse_jmp(lexer, line, InstType.jne)
+                    case 'jne' | 'jbe' | 'jae' | 'jmp' | 'jnz' | 'jge':
+                        jmp_inst, jmp_label = parse_jmp(lexer, line, InstType(token.value))
                         jmp_insts.append((jmp_inst, jmp_label))
                         inst.append(jmp_inst)
                     case 'push':

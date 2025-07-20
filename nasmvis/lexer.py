@@ -81,7 +81,7 @@ class Lexer:
             # identifier
             token_value = [code[pos]]
             pos += 1
-            while pos < len(code) and code[pos].isidentifier():
+            while pos < len(code) and (code[pos].isalnum() or code[pos] == '_'):
                 token_value.append(code[pos])
                 pos += 1
             token_value = ''.join(token_value)

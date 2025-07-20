@@ -165,7 +165,7 @@ class Machine:
         # some operations on a 32-bit register clear the upper 32 bits of the corresponding 64-bit register
         clear_upper_bits = False
         match op:
-            case InstType.add:
+            case InstType.add | InstType.inc:
                 res = dest + src
                 res_sign = get_sign_bit(res, reg_width)
                 dest_sign = get_sign_bit(dest, reg_width)
@@ -173,9 +173,12 @@ class Machine:
 
                 self.flags[Flags.ZF] = res % max_value == 0
                 self.flags[Flags.SF] = res_sign == 1 # Sign flag is set if MSB is set
-                self.flags[Flags.CF] = res >= max_value # Carry flag is set if unsigned dest + src > max value (carry)
+
+                if op == InstType.add:
+                    self.flags[Flags.CF] = res >= max_value # Carry flag is set if unsigned dest + src > max value (carry)
                 # for a + b OF is set if a and b have the same sign, but the result has a different sign
                 self.flags[Flags.OF] = (True if dest_sign == src_sign and res_sign != dest_sign else False)
+                clear_upper_bits = True
             case InstType.xor:
                 self.flags[Flags.ZF] = True
                 self.flags[Flags.SF] = False
@@ -186,7 +189,7 @@ class Machine:
             case InstType.mov:
                 res = src
                 clear_upper_bits = True
-            case InstType.cmp | InstType.sub:
+            case InstType.cmp | InstType.sub | InstType.dec:
                 res = dest - src
                 res_sign = get_sign_bit(res, reg_width)
                 dest_sign = get_sign_bit(dest, reg_width)
@@ -194,7 +197,9 @@ class Machine:
 
                 self.flags[Flags.ZF] = res % max_value == 0
                 self.flags[Flags.SF] = res_sign == 1 # Sign flag is set if MSB is set
-                self.flags[Flags.CF] = res < 0 # Carry flag is set if unsigned dest < src (borrow)
+
+                if op != InstType.dec:
+                    self.flags[Flags.CF] = res < 0 # Carry flag is set if unsigned dest < src (borrow)
                 # for a - b OF is set if a and b have different signs, and the result’s sign differs from the sign of a
                 self.flags[Flags.OF] = (True if dest_sign != src_sign and res_sign != dest_sign else False)
                 if op == InstType.cmp:
@@ -227,20 +232,28 @@ class Machine:
         inst = self.inst[self.rip]
 
         match inst:
-            case Inst(line, op, ops) if len(ops) == 2:
+            case Inst(line, op, ops) if len(ops) == 2 or op == InstType.inc or op == InstType.dec:
                 self.rip += 1
-                dest, src = ops[0], ops[1]
+                if op == InstType.inc or op == InstType.dec:
+                    dest = ops[0]
+                    src = 1
+                else:
+                    dest, src = ops[0], ops[1]
+
                 match (dest, src):
                     case (RegisterOp(), int()):
                         src_value = src
+                        dest_value = self.get_register(dest.name)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (RegisterOp(), RegisterOp()):
                         src_value = self.get_register(src.name)
+                        dest_value = self.get_register(dest.name)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (RegisterOp(), str()):
                         src_value = self.data_labels[src]
+                        dest_value = self.get_register(dest.name)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (RegisterOp(), MemoryOp()):
@@ -253,25 +266,65 @@ class Machine:
                             addr += self.get_register(src.base)
                         if src.index is not None:
                             addr += self.get_register(src.index)*src.scale
+                        # TODO: need to get multiple bytes depending on register width
                         src_value = self.memory[addr]
+                        dest_value = self.get_register(dest.name)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
+                    case (MemoryOp(), RegisterOp()):
+                        addr = 0
+                        if isinstance(dest.displacement, str):
+                            addr += self.data_labels[src.displacement]
+                        else:
+                            addr += dest.displacement
+                        if dest.base is not None:
+                            addr += self.get_register(dest.base)
+                        if dest.index is not None:
+                            addr += self.get_register(dest.index) * dest.scale
+
+                        src_value = self.get_register(src.name)
+                        # TODO: need to get multiple bytes depending on register width
+                        dest_value = self.memory[addr]
+                        reg_max_value = get_reg_max_value(src)
+                        reg_width = get_reg_width(src)
                     case _:
                         raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}')
-                res, clear_upper_bits = self.compute_binop(self.get_register(dest.name), src_value, op, reg_max_value, reg_width)
-                self.set_register(dest.name, res, clear_upper_bits)
+                res, clear_upper_bits = self.compute_binop(dest_value, src_value, op, reg_max_value, reg_width)
+                if isinstance(dest, RegisterOp):
+                    self.set_register(dest.name, res, clear_upper_bits)
+                else:
+                    # TODO: addr might not be assigned
+                    self.memory[addr] = res
             case Inst(line, op, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
-                    case InstType.dec:
-                        assert isinstance(operand, RegisterOp)
-                        self.set_register(operand.name, self.get_register(operand.name) - 1, clear_upper_bits=True)
-                        self.rip += 1
                     case InstType.jne:
-                        if self.flags[Flags.ZF] == 0:
+                        if not self.flags[Flags.ZF]:
                             self.rip = operand
                         else:
                             self.rip += 1
+                    case InstType.jbe:
+                        if self.flags[Flags.CF] or self.flags[Flags.ZF]:
+                            self.rip = operand
+                        else:
+                            self.rip += 1
+                    case InstType.jae:
+                        if not self.flags[Flags.CF]:
+                            self.rip = operand
+                        else:
+                            self.rip += 1
+                    case InstType.jnz:
+                        if not self.flags[Flags.ZF]:
+                            self.rip = operand
+                        else:
+                            self.rip += 1
+                    case InstType.jge:
+                        if self.flags[Flags.SF] == self.flags[Flags.OF]:
+                            self.rip = operand
+                        else:
+                            self.rip += 1
+                    case InstType.jmp:
+                        self.rip = operand
                     case InstType.push:
                         match operand:
                             case RegisterOp():
@@ -280,10 +333,11 @@ class Machine:
                                 raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
                         self.rip += 1
                     case InstType.pop:
+                        assert operand.name in R64
                         value = self.pop_from_stack()
                         match operand:
-                            case Register():
-                                self.set_register(operand, value, clear_upper_bits=False)
+                            case RegisterOp():
+                                self.set_register(operand.name, value, clear_upper_bits=False)
                             case _:
                                 raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.rip += 1
