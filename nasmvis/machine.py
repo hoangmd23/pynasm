@@ -205,17 +205,19 @@ class Machine:
         return res, clear_upper_bits
 
     def push_onto_stack(self, value: int) -> None:
-        self.set_register(R64.rsp, self.get_register(R64.rsp) - 8)
+        # TODO: we can also push 2 bytes, e.g. ax
+        self.set_register(R64.rsp, self.get_register(R64.rsp) - 8, clear_upper_bits=False)
         for i in range(8):
             self.memory[self.get_register(R64.rsp) + i] = value >> (i * 8) & 0xFF
 
     def pop_from_stack(self) -> int:
+        # TODO: we can also pop 2 or 4 bytes
         if self.get_register(R64.rsp) >= len(self.memory):
             raise MachineException(f'Stack underflow')
         value = 0
         for i in range(8):
             value += self.memory[self.get_register(R64.rsp) + i] << (i * 8)
-        self.set_register(R64.rsp, self.get_register(R64.rsp) + 8)
+        self.set_register(R64.rsp, self.get_register(R64.rsp) + 8, clear_upper_bits=False)
         return value
 
     def step(self) -> bool:
@@ -263,7 +265,7 @@ class Machine:
                 match op:
                     case InstType.dec:
                         assert isinstance(operand, RegisterOp)
-                        self.set_register(operand.name, self.get_register(operand.name)-1)
+                        self.set_register(operand.name, self.get_register(operand.name) - 1, clear_upper_bits=True)
                         self.rip += 1
                     case InstType.jne:
                         if self.flags[Flags.ZF] == 0:
@@ -281,7 +283,7 @@ class Machine:
                         value = self.pop_from_stack()
                         match operand:
                             case Register():
-                                self.set_register(operand, value)
+                                self.set_register(operand, value, clear_upper_bits=False)
                             case _:
                                 raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.rip += 1

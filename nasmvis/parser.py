@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import cast
 
 
-from nasmvis.common import Register, Operand, Registers, RegisterOp, MemoryOp, register_names, InstType
+from nasmvis.common import Register, Operand, RegisterOp, MemoryOp, register_names, InstType
 from nasmvis.lexer import Lexer, TokenType
 
 
