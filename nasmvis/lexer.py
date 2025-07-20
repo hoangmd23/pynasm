@@ -1,6 +1,8 @@
 from enum import StrEnum
 from typing import NamedTuple
 
+from nasmvis.common import register_names, InstType
+
 
 class LexerError(Exception):
     pass
@@ -13,31 +15,35 @@ KEYWORDS = {
     'text',
     'db',
     # unops
-    'dec',
+    # 'dec',
     # binops
-    'mov',
-    'add',
-    'xor',
-    'cmp',
+    # 'mov',
+    # 'add',
+    # 'xor',
+    # 'cmp',
     # jumps
-    'jne',
+    # 'jne',
     # registers
-    'rax',
-    'rbx',
-    'rdx',
-    'rsi',
-    'rsp',
-    'rbp',
-    'rcx',
-    'rdi',
-    'eax',
-    'call',
-    'ret',
+    # 'rax',
+    # 'rbx',
+    # 'rdx',
+    # 'rsi',
+    # 'rsp',
+    # 'rbp',
+    # 'rcx',
+    # 'rdi',
+    # 'eax',
+    # 'call',
+    # 'ret',
     'exit',
     # stack
-    'push',
-    'pop',
+    # 'push',
+    # 'pop',
 }
+
+# noinspection PyUnresolvedReferences
+KEYWORDS |= set(x.value for x in InstType)
+KEYWORDS |= register_names
 
 
 class TokenType(StrEnum):

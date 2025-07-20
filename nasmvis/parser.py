@@ -3,31 +3,16 @@ from enum import StrEnum
 from typing import cast
 
 
-from nasmvis.common import Register, Operand, Registers, RegisterOp, MemoryOp
+from nasmvis.common import Register, Operand, Registers, RegisterOp, MemoryOp, register_names, InstType
 from nasmvis.lexer import Lexer, TokenType
 
 
 type ParserResult = tuple[int | None, list[Inst | None], bytearray, dict[str, int]]
 ENTRYPOINT = 'main'
-register_names = set(name for r in Registers for name in (r.r64, r.r32, r.r16, r.rh, r.rl))
 
 
 class ParserError(Exception):
     pass
-
-
-class InstType(StrEnum):
-    mov = 'mov'
-    add = 'add'
-    xor = 'xor'
-    cmp = 'cmp'
-    dec = 'dec'
-    jne = 'jne'
-    call = 'call'
-    ret = 'ret'
-    exit = 'exit'
-    push = 'push'
-    pop = 'pop'
 
 
 @dataclass
@@ -123,6 +108,10 @@ def parse_add(lexer: Lexer, line: int) -> Inst:
     return Inst(line, InstType.add, [*parse_binop(lexer, line)])
 
 
+def parse_sub(lexer: Lexer, line: int) -> Inst:
+    return Inst(line, InstType.sub, [*parse_binop(lexer, line)])
+
+
 def parse_xor(lexer: Lexer, line: int) -> Inst:
     return Inst(line, InstType.xor, [*parse_binop(lexer, line)])
 
@@ -184,9 +173,12 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                         lexer.expect(TokenType.Dot)
                         lexer.expect(TokenType.Keyword)
                     case 'mov':
+                        # TODO: add support for hex numbers
                         inst.append(parse_mov(lexer, line))
                     case 'add':
                         inst.append(parse_add(lexer, line))
+                    case 'sub':
+                        inst.append(parse_sub(lexer, line))
                     case 'xor':
                         inst.append(parse_xor(lexer, line))
                     case 'cmp':

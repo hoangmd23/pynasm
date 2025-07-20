@@ -2,6 +2,21 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
+class InstType(StrEnum):
+    mov = 'mov'
+    add = 'add'
+    sub = 'sub'
+    xor = 'xor'
+    cmp = 'cmp'
+    dec = 'dec'
+    jne = 'jne'
+    call = 'call'
+    ret = 'ret'
+    exit = 'exit'
+    push = 'push'
+    pop = 'pop'
+
+
 class R64(StrEnum):
     rax = 'rax'
     rbx = 'rbx'
@@ -116,6 +131,9 @@ Registers = [
     Register(r64=R64.r14, r32=R32.r14d,r16=R16.r14w,rh=None,rl=RL.r14b),
     Register(r64=R64.r15, r32=R32.r15d,r16=R16.r15w,rh=None,rl=RL.r15b),
 ]
+
+
+register_names = set(name for r in Registers for name in (r.r64, r.r32, r.r16, r.rh, r.rl))
 
 
 @dataclass

@@ -34,11 +34,47 @@ FlagsRegister = [
 ]
 
 
-REGISTER_WIDTH = 64
 MEMORY_CAPACITY = 1024
+R64_WIDTH = 64
+R64_MAX_VALUE = 2 ** R64_WIDTH
+R32_WIDTH = 32
+R32_MAX_VALUE = 2 ** R32_WIDTH
+R16_WIDTH = 16
+R16_MAX_VALUE = 2 ** R16_WIDTH
+R8_WIDTH = 8
+R8_MAX_VALUE = 2 ** R8_WIDTH
 
-def get_sign_bit(value: int):
-    return value >> (REGISTER_WIDTH - 1) & 1
+
+def get_sign_bit(value: int, reg_width: int):
+    return value >> (reg_width - 1) & 1
+
+
+def get_reg_max_value(reg: RegisterType) -> int:
+    match reg.name:
+        case x if x in R64:
+            return R64_MAX_VALUE
+        case x if x in R32:
+            return R32_MAX_VALUE
+        case x if x in R16:
+            return R16_MAX_VALUE
+        case x if x in RH or x in RL:
+            return R8_MAX_VALUE
+        case _:
+            raise MachineException(f'Unknown register: {reg}')
+
+
+def get_reg_width(reg: RegisterType) -> int:
+    match reg.name:
+        case x if x in R64:
+            return R64_WIDTH
+        case x if x in R32:
+            return R32_WIDTH
+        case x if x in R16:
+            return R16_WIDTH
+        case x if x in RH or x in RL:
+            return R8_WIDTH
+        case _:
+            raise MachineException(f'Unknown register: {reg}')
 
 
 def get_reg_by_name(name: str) -> RegisterType:
@@ -61,9 +97,14 @@ class Machine:
     def __init__(self):
         self.inst: list[Inst | None] = []
         self.rip: int = 0
-        self.registers: dict[R64, Register] = { r.r64: r for r in Registers }
+
+        self.reg64: dict[R64, Register] = { r.r64: r for r in Registers }
+        self.reg32: dict[R32, Register] = { r.r32: r for r in Registers }
+        self.reg16: dict[R16, Register] = { r.r16: r for r in Registers }
+        self.reg8h: dict[RH, Register] = { r.rh: r for r in Registers if r.rh is not None }
+        self.reg8l: dict[RL, Register] = { r.rl: r for r in Registers }
+
         self.flags: dict[Flags, bool] = {x: False for x in FlagsRegister if x is not None}
-        self.reg_max_value = 2**REGISTER_WIDTH
         self.memory = bytearray(MEMORY_CAPACITY)
         self.data_labels: dict[str, int] = {}
         self.entrypoint: int = -1
@@ -87,7 +128,9 @@ class Machine:
             reg = get_reg_by_name(reg)
         match reg:
             case R64():
-                self.registers[reg].value = value % self.reg_max_value
+                self.reg64[reg].value = value % R64_MAX_VALUE
+            case R32():
+                self.reg32[reg].value = value % R32_MAX_VALUE
             case _:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for set_register')
 
@@ -96,23 +139,25 @@ class Machine:
             reg = get_reg_by_name(reg)
         match reg:
             case R64():
-                return self.registers[reg].value
+                return self.reg64[reg].value
+            case R32():
+                return self.reg32[reg].value & 0xFFFFFFFF
             case _:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for get_register')
 
 
-    def compute_binop(self, dest: int, src: int, op: InstType) -> int:
+    def compute_binop(self, dest: int, src: int, op: InstType, max_value: int, reg_width: int) -> int:
         # TODO: support registers of different width, are flags set differently?
         match op:
             case InstType.add:
                 res = dest + src
-                res_sign = get_sign_bit(res)
-                dest_sign = get_sign_bit(dest)
-                src_sign = get_sign_bit(src)
+                res_sign = get_sign_bit(res, reg_width)
+                dest_sign = get_sign_bit(dest, reg_width)
+                src_sign = get_sign_bit(src, reg_width)
 
-                self.flags[Flags.ZF] = res == 0
+                self.flags[Flags.ZF] = res % max_value == 0
                 self.flags[Flags.SF] = res_sign == 1 # Sign flag is set if MSB is set
-                self.flags[Flags.CF] = res >= self.reg_max_value # Carry flag is set if unsigned dest + src > max value (carry)
+                self.flags[Flags.CF] = res >= max_value # Carry flag is set if unsigned dest + src > max value (carry)
                 # for a + b OF is set if a and b have the same sign, but the result has a different sign
                 self.flags[Flags.OF] = (True if dest_sign == src_sign and res_sign != dest_sign else False)
             case InstType.xor:
@@ -123,18 +168,19 @@ class Machine:
                 res = dest ^ src
             case InstType.mov:
                 res = src
-            case InstType.cmp:
+            case InstType.cmp | InstType.sub:
                 res = dest - src
-                res_sign = get_sign_bit(res)
-                dest_sign = get_sign_bit(dest)
-                src_sign = get_sign_bit(src)
+                res_sign = get_sign_bit(res, reg_width)
+                dest_sign = get_sign_bit(dest, reg_width)
+                src_sign = get_sign_bit(src, reg_width)
 
-                self.flags[Flags.ZF] = res == 0
+                self.flags[Flags.ZF] = res % max_value == 0
                 self.flags[Flags.SF] = res_sign == 1 # Sign flag is set if MSB is set
                 self.flags[Flags.CF] = res < 0 # Carry flag is set if unsigned dest < src (borrow)
                 # for a - b OF is set if a and b have different signs, and the result’s sign differs from the sign of a
                 self.flags[Flags.OF] = (True if dest_sign != src_sign and res_sign != dest_sign else False)
-                res = dest
+                if op == InstType.cmp:
+                    res = dest
             case _:
                 raise NotImplementedError(f'Binary operator {op} is not implemented')
         return res
@@ -166,10 +212,16 @@ class Machine:
                 match (dest, src):
                     case (RegisterOp(), int()):
                         src_value = src
+                        reg_max_value = get_reg_max_value(dest)
+                        reg_width = get_reg_width(dest)
                     case (RegisterOp(), RegisterOp()):
                         src_value = self.get_register(src.name)
+                        reg_max_value = get_reg_max_value(dest)
+                        reg_width = get_reg_width(dest)
                     case (RegisterOp(), str()):
                         src_value = self.data_labels[src]
+                        reg_max_value = get_reg_max_value(dest)
+                        reg_width = get_reg_width(dest)
                     case (RegisterOp(), MemoryOp()):
                         addr = 0
                         if isinstance(src.displacement, str):
@@ -181,9 +233,11 @@ class Machine:
                         if src.index is not None:
                             addr += self.get_register(src.index)*src.scale
                         src_value = self.memory[addr]
+                        reg_max_value = get_reg_max_value(dest)
+                        reg_width = get_reg_width(dest)
                     case _:
                         raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}')
-                self.set_register(dest.name, self.compute_binop(self.get_register(dest.name), src_value, op))
+                self.set_register(dest.name, self.compute_binop(self.get_register(dest.name), src_value, op, reg_max_value, reg_width))
             case Inst(line, op, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
