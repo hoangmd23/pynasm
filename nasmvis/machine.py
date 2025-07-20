@@ -274,7 +274,7 @@ class Machine:
                             self.rip += 1
                     case InstType.push:
                         match operand:
-                            case Register():
+                            case RegisterOp():
                                 self.push_onto_stack(self.get_register(operand.name))
                             case _:
                                 raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
