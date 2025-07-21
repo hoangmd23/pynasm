@@ -16,6 +16,7 @@ class InstType(StrEnum):
     jmp = 'jmp'
     jnz = 'jnz'
     jge = 'jge'
+    je = 'je'
     call = 'call'
     ret = 'ret'
     exit = 'exit'
@@ -141,6 +142,9 @@ Registers = [
 
 register_names = set(name for r in Registers for name in (r.r64, r.r32, r.r16, r.rh, r.rl))
 
+
+class OperandSize(StrEnum):
+    byte = 'byte'
 
 @dataclass
 class Operand:

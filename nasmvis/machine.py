@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp
+from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize
 from nasmvis.parser import Inst, InstType
 
 
@@ -110,7 +110,7 @@ class Machine:
         self.entrypoint: int = -1
         self.running: bool = False
 
-    def load_inst_and_data(self, entrypoint: int, inst: list[Inst], data: bytearray, data_labels: dict[str, int]) -> None:
+    def load_inst_and_data(self, entrypoint: int, inst: list[Inst], data: bytearray, data_labels: dict[str, int], bss_size: int) -> None:
         self.inst = inst
         self.memory[:len(data)] = data
         self.data_labels = data_labels
@@ -163,7 +163,6 @@ class Machine:
     def compute_binop(self, dest: int, src: int, op: InstType, max_value: int, reg_width: int) -> tuple[int, bool]:
         # TODO: support registers of different width, are flags set differently?
         # some operations on a 32-bit register clear the upper 32 bits of the corresponding 64-bit register
-        clear_upper_bits = False
         match op:
             case InstType.add | InstType.inc:
                 res = dest + src
@@ -232,7 +231,7 @@ class Machine:
         inst = self.inst[self.rip]
 
         match inst:
-            case Inst(line, op, ops) if len(ops) == 2 or op == InstType.inc or op == InstType.dec:
+            case Inst(line, op, op_size, ops) if len(ops) == 2 or op == InstType.inc or op == InstType.dec:
                 self.rip += 1
                 if op == InstType.inc or op == InstType.dec:
                     dest = ops[0]
@@ -241,6 +240,7 @@ class Machine:
                     dest, src = ops[0], ops[1]
 
                 match (dest, src):
+                    # TODO: can we process dest and src separately?
                     case (RegisterOp(), int()):
                         src_value = src
                         dest_value = self.get_register(dest.name)
@@ -287,19 +287,41 @@ class Machine:
                         dest_value = self.memory[addr]
                         reg_max_value = get_reg_max_value(src)
                         reg_width = get_reg_width(src)
+                    case(MemoryOp(), int()):
+                        addr = 0
+                        if isinstance(dest.displacement, str):
+                            addr += self.data_labels[src.displacement]
+                        else:
+                            addr += dest.displacement
+                        if dest.base is not None:
+                            addr += self.get_register(dest.base)
+                        if dest.index is not None:
+                            addr += self.get_register(dest.index) * dest.scale
+
+                        src_value = src
+                        # TODO: need to get multiple bytes depending on register width
+                        dest_value = self.memory[addr]
+                        assert op_size == OperandSize.byte, "Not implemented"
+                        reg_width = R8_WIDTH
+                        reg_max_value = R8_MAX_VALUE
                     case _:
-                        raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}')
+                        raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}\nInst: {inst}')
                 res, clear_upper_bits = self.compute_binop(dest_value, src_value, op, reg_max_value, reg_width)
                 if isinstance(dest, RegisterOp):
                     self.set_register(dest.name, res, clear_upper_bits)
                 else:
                     # TODO: addr might not be assigned
                     self.memory[addr] = res
-            case Inst(line, op, ops) if len(ops) == 1:
+            case Inst(line, op, op_size, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
                     case InstType.jne:
                         if not self.flags[Flags.ZF]:
+                            self.rip = operand
+                        else:
+                            self.rip += 1
+                    case InstType.je:
+                        if self.flags[Flags.ZF]:
                             self.rip = operand
                         else:
                             self.rip += 1
@@ -346,9 +368,9 @@ class Machine:
                         self.rip = operand
                     case _:
                         raise NotImplementedError(f'{line}: Unary operator {op} is not implemented')
-            case Inst(_, InstType.ret, _):
+            case Inst(_, InstType.ret, _, _):
                 self.rip = self.pop_from_stack()
-            case Inst(_, InstType.exit, _):
+            case Inst(_, InstType.exit, _, _):
                 self.running = False
             case _:
                 raise NotImplementedError(f'Instruction {inst.type} is not implemented')

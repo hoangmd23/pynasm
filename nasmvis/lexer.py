@@ -11,10 +11,15 @@ class LexerError(Exception):
 KEYWORDS = {
     # sections
     'section',
-    'data',
+    '.data',
+    'db',
+    '.bss',
+    '.text',
+    'global',
+    'resq',
     'equ',
     'text',
-    'db',
+    'byte',
     'exit',
 }
 
@@ -77,7 +82,7 @@ class Lexer:
                 token_value.append(code[pos])
                 pos += 1
             token_value = ''.join(token_value)
-        elif code[pos].isidentifier():
+        elif code[pos].isidentifier() or code[pos] == '.':
             # identifier
             token_value = [code[pos]]
             pos += 1
