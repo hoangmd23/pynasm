@@ -185,7 +185,7 @@ class Machine:
                 self.flags[Flags.OF] = False
                 res = dest ^ src
                 clear_upper_bits = True
-            case InstType.mov:
+            case InstType.mov | InstType.movzx:
                 res = src
                 clear_upper_bits = True
             case InstType.cmp | InstType.sub | InstType.dec:

@@ -4,6 +4,7 @@ from enum import StrEnum
 
 class InstType(StrEnum):
     mov = 'mov'
+    movzx = 'movzx'
     add = 'add'
     sub = 'sub'
     xor = 'xor'

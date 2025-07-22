@@ -111,6 +111,11 @@ def parse_binop(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels
     lexer.expect(TokenType.Comma)
 
     # parse source
+    if operand_size is None:
+        operand_size = parse_op_size(lexer)
+    elif parse_op_size(lexer) is not None:
+        raise ParserError(f'{line}: Size of an operand is specified two times')
+
     src = lexer.expect(TokenType.Keyword, TokenType.Number, TokenType.Identifier, TokenType.OpeningSquareBracket)
 
     if src.type == TokenType.Keyword and src.value in register_names:
@@ -132,6 +137,10 @@ def parse_binop(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels
 
 def parse_mov(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
     return Inst(line, InstType.mov, *parse_binop(lexer, line, data_labels, equ_labels))
+
+
+def parse_movzx(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, InstType.movzx, *parse_binop(lexer, line, data_labels, equ_labels))
 
 
 def parse_add(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
@@ -292,6 +301,8 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                     case 'mov':
                         # TODO: add support for hex numbers
                         inst.append(parse_mov(lexer, line, data_labels, equ_labels))
+                    case 'movzx':
+                        inst.append(parse_movzx(lexer, line, data_labels, equ_labels))
                     case 'add':
                         inst.append(parse_add(lexer, line, data_labels, equ_labels))
                     case 'sub':
