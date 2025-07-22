@@ -73,7 +73,7 @@ class Lexer:
             token_type = TokenType.NewLine
             token_value = None
             pos += 1
-        elif code[pos].isdigit():
+        elif code[pos].isdigit() or code[pos] == '-':
             # number
             token_type = TokenType.Number
             token_value = [code[pos]]

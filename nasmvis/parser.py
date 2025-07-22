@@ -143,6 +143,10 @@ def parse_movzx(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels
     return Inst(line, InstType.movzx, *parse_binop(lexer, line, data_labels, equ_labels))
 
 
+def parse_movsx(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, InstType.movsx, *parse_binop(lexer, line, data_labels, equ_labels))
+
+
 def parse_add(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
     return Inst(line, InstType.add, *parse_binop(lexer, line, data_labels, equ_labels))
 
@@ -239,7 +243,7 @@ def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int
                                         for s in token.value:
                                             data.append(ord(s))
                                     case TokenType.Number:
-                                        data.append(int(token.value))
+                                        data.append(int(token.value) % 256)
                                     case _:
                                         raise NotImplementedError(f'Define data is not implemented for {token.type}')
                                 if lexer.peek().type == TokenType.Comma:
@@ -287,6 +291,15 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
         if token is None:
             break
 
+        # skip data and bss lines that were already processed
+        if line in parsed_lines:
+            while True:
+                token = lexer.next_or_none()
+                if token is None:
+                    break
+                elif token.type == TokenType.NewLine:
+                    break
+
         # parse one line
         match token.type:
             case TokenType.NewLine:
@@ -303,6 +316,8 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                         inst.append(parse_mov(lexer, line, data_labels, equ_labels))
                     case 'movzx':
                         inst.append(parse_movzx(lexer, line, data_labels, equ_labels))
+                    case 'movsx':
+                        inst.append(parse_movsx(lexer, line, data_labels, equ_labels))
                     case 'add':
                         inst.append(parse_add(lexer, line, data_labels, equ_labels))
                     case 'sub':

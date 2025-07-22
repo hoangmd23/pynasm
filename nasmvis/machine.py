@@ -188,6 +188,14 @@ class Machine:
             case InstType.mov | InstType.movzx:
                 res = src
                 clear_upper_bits = True
+            case InstType.movsx:
+                # TODO: currently only supports 1 byte source
+                sign = get_sign_bit(src, 8)
+                res = src
+                if sign == 1:
+                    for i in range(reg_width - 8):
+                        res |= 1 << (i + 8)
+                clear_upper_bits = True
             case InstType.cmp | InstType.sub | InstType.dec:
                 res = dest - src
                 res_sign = get_sign_bit(res, reg_width)
