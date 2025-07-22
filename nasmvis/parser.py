@@ -349,53 +349,16 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                     case _:
                         raise NotImplementedError(f'Keyword {token.value} is not implemented')
             case TokenType.Identifier:
-                if token.value == 'syscall':
-                    pass
-                else:
-                    # parse label
-                    label = token.value
+                # parse label
+                label = token.value
 
-                    # skip colon
-                    if lexer.peek().type == TokenType.Colon:
-                        lexer.expect(TokenType.Colon)
+                # skip colon
+                if lexer.peek().type == TokenType.Colon:
+                    lexer.expect(TokenType.Colon)
 
-                    match lexer.peek().value:
-                        case 'db':
-                            # define data
-                            data_labels[label] = len(data)
-                            token = lexer.next()
-                            match token.value:
-                                case 'db':
-                                    while True:
-                                        token = lexer.next()
-                                        match token.type:
-                                            case TokenType.String:
-                                                for s in token.value:
-                                                    data.append(ord(s))
-                                            case TokenType.Number:
-                                                data.append(int(token.value))
-                                            case _:
-                                                raise NotImplementedError(f'Define data is not implemented for {token.type}')
-                                        if lexer.peek().type == TokenType.Comma:
-                                            lexer.next()
-                                        else:
-                                            break
-                                case _:
-                                    raise NotImplementedError(f'{token.value} is not implemented')
-                        case 'equ':
-                            # TODO: currently only support numbers
-                            lexer.expect(TokenType.Keyword) # consume equ
-                            equ_labels[label] = lexer.expect(TokenType.Number).value
-                        case 'resq':
-                            lexer.next() # consume resq
-                            size = int(lexer.expect(TokenType.Number).value) * 8
-                            bss[label] = size
-                            bss_size += size
-                        case _:
-                            # define label
-                            labels[label] = len(inst)
-                            if start_addr is None and label == ENTRYPOINT:
-                                start_addr = len(inst)
+                labels[label] = len(inst)
+                if start_addr is None and label == ENTRYPOINT:
+                    start_addr = len(inst)
             case _:
                 raise NotImplementedError(f'Token type {token.type} ({token.value}) is not implemented')
 
