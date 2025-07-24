@@ -281,11 +281,7 @@ class Machine:
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (RegisterOp(), MemoryOp()):
-                        addr = 0
-                        if isinstance(src.displacement, str):
-                            addr += self.data_labels[src.displacement]
-                        else:
-                            addr += src.displacement
+                        addr = src.displacement
                         if src.base is not None:
                             addr += self.get_register(src.base)
                         if src.index is not None:
@@ -296,11 +292,7 @@ class Machine:
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (MemoryOp(), RegisterOp()):
-                        addr = 0
-                        if isinstance(dest.displacement, str):
-                            addr += self.data_labels[src.displacement]
-                        else:
-                            addr += dest.displacement
+                        addr = dest.displacement
                         if dest.base is not None:
                             addr += self.get_register(dest.base)
                         if dest.index is not None:
@@ -312,11 +304,7 @@ class Machine:
                         reg_max_value = get_reg_max_value(src)
                         reg_width = get_reg_width(src)
                     case(MemoryOp(), int()):
-                        addr = 0
-                        if isinstance(dest.displacement, str):
-                            addr += self.data_labels[src.displacement]
-                        else:
-                            addr += dest.displacement
+                        addr = dest.displacement
                         if dest.base is not None:
                             addr += self.get_register(dest.base)
                         if dest.index is not None:

@@ -62,7 +62,7 @@ def parse_memory_op(lexer: Lexer, line: int, data_labels: dict[str, int], equ_la
                     # index
                     lexer.next()
                     reg = lexer.next()
-                    if reg.value in Register:
+                    if reg.value in register_names:
                         memory.index = reg.value
                         memory.scale = token.value
                     else:
@@ -75,14 +75,20 @@ def parse_memory_op(lexer: Lexer, line: int, data_labels: dict[str, int], equ_la
             if token.type != TokenType.ClosingSquareBracket:
                 raise ParserError(f'{line}: invalid effective address')
             break
+
     if memory.scale in equ_labels:
         memory.scale = int(equ_labels[memory.scale])
-    if memory.scale in data_labels:
+    elif memory.scale in data_labels:
         memory.scale = int(data_labels[memory.scale])
+    else:
+        memory.scale = int(memory.scale)
+
     if memory.displacement in equ_labels:
         memory.displacement = int(equ_labels[memory.displacement])
-    if memory.displacement in data_labels:
+    elif memory.displacement in data_labels:
         memory.displacement = int(data_labels[memory.displacement])
+    else:
+        memory.displacement = int(memory.displacement)
     return memory
 
 
