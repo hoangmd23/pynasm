@@ -164,6 +164,17 @@ class Machine:
             case _:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for get_register')
 
+    def read_memory(self, addr: int, size: OperandSize) -> int:
+        assert size == OperandSize.byte
+        return self.memory[addr]
+
+    def write_memory(self, addr: int, value: int, op_size: OperandSize):
+        match op_size:
+            case OperandSize.byte:
+                self.memory[addr] = value % R8_MAX_VALUE
+            case _:
+                raise NotImplementedError(f'{op_size} is not implemented')
+
 
     def compute_binop(self, dest: int, src: int, op: InstType, max_value: int, reg_width: int) -> tuple[int, bool]:
         # TODO: support registers of different width, are flags set differently?
@@ -324,7 +335,7 @@ class Machine:
                     self.set_register(dest.name, res, clear_upper_bits)
                 else:
                     # TODO: addr might not be assigned
-                    self.memory[addr] = res
+                    self.write_memory(addr, res, op_size)
             case Inst(line, op, op_size, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
