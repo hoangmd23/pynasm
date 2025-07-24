@@ -1,0 +1,372 @@
+- asm: |
+    mov rax, 10
+  expected:
+    register:
+      rax: 10
+      eax: 10
+      ax: 10
+      ah: 0
+      al: 10
+
+- asm: |
+    mov eax, 255
+  expected:
+    register:
+      rax: 255
+      eax: 255
+      ax: 255
+      ah: 0
+      al: 255
+
+- asm: |
+    mov ax, 33
+  expected:
+    register:
+      rax: 33
+      eax: 33
+      ax: 33
+      ah: 0
+      al: 33
+
+- asm: |
+    mov ah, 123
+  expected:
+    register:
+      rax: 31488
+      eax: 31488
+      ax: 31488
+      ah: 123
+      al: 0
+
+- asm: |
+    mov al, 42
+  expected:
+    register:
+      rax: 42
+      eax: 42
+      ax: 42
+      ah: 0
+      al: 42
+
+- asm: |
+    mov rax, -1
+  expected:
+    register:
+      rax: '0xFFFFFFFFFFFFFFFF'
+      eax: '0xFFFFFFFF'
+      ax: '0xFFFF'
+      ah: '0xFF'
+      al: '0xFF'
+
+- asm: |
+    mov eax, -1
+  expected:
+    register:
+      rax: '0xFFFFFFFF'
+      eax: '0xFFFFFFFF'
+      ax: '0xFFFF'
+      ah: '0xFF'
+      al: '0xFF'
+
+- asm: |
+    mov ax, -1
+  expected:
+    register:
+      rax: '0xFFFF'
+      eax: '0xFFFF'
+      ax: '0xFFFF'
+      ah: '0xFF'
+      al: '0xFF'
+
+- asm: |
+    mov ah, -1
+  expected:
+    register:
+      rax: '0xFF00'
+      eax: '0xFF00'
+      ax: '0xFF00'
+      ah: '0xFF'
+      al: '0x00'
+
+- asm: |
+    mov al, -1
+  expected:
+    register:
+      rax: '0xFF'
+      eax: '0xFF'
+      ax: '0xFF'
+      ah: '0x00'
+      al: '0xFF'
+
+- asm: |
+    mov rax, -431534145987985698
+  expected:
+    register:
+      rax: '0xFA02E1FB07EF3EDE'
+      eax: '0x07EF3EDE'
+      ax: '0x3EDE'
+      ah: '0x3E'
+      al: '0xDE'
+
+- asm: |
+    mov rax, 431534145987985698
+  expected:
+    register:
+      rax: '0x05FD1E04F810C122'
+      eax: '0xF810C122'
+      ax: '0xC122'
+      ah: '0xC1'
+      al: '0x22'
+
+- asm: |
+    mov ax, 431534145987985698
+  expected:
+    register:
+      rax: '0xC122'
+      eax: '0xC122'
+      ax: '0xC122'
+      ah: '0xC1'
+      al: '0x22'
+
+- asm: |
+    mov rbx, -431534145987985698
+  expected:
+    register:
+      rbx: '0xFA02E1FB07EF3EDE'
+      ebx: '0x07EF3EDE'
+      bx: '0x3EDE'
+      bh: '0x3E'
+      bl: '0xDE'
+
+- asm: |
+    mov rbx, 431534145987985698
+  expected:
+    register:
+      rbx: '0x05FD1E04F810C122'
+      ebx: '0xF810C122'
+      bx: '0xC122'
+      bh: '0xC1'
+      bl: '0x22'
+
+- asm: |
+    mov bx, 431534145987985698
+  expected:
+    register:
+      rbx: '0xC122'
+      ebx: '0xC122'
+      bx: '0xC122'
+      bh: '0xC1'
+      bl: '0x22'
+
+- asm: |
+    mov r15, -431534145987985698
+  expected:
+    register:
+      r15: '0xFA02E1FB07EF3EDE'
+      r15d: '0x07EF3EDE'
+      r15w: '0x3EDE'
+      r15b: '0xDE'
+
+- asm: |
+    mov r15, 431534145987985698
+  expected:
+    register:
+      r15: '0x05FD1E04F810C122'
+      r15d: '0xF810C122'
+      r15w: '0xC122'
+      r15b: '0x22'
+
+- asm: |
+    mov r15w, 431534145987985698
+  expected:
+    register:
+      r15: '0xC122'
+      r15d: '0xC122'
+      r15w: '0xC122'
+      r15b: '0x22'
+
+- asm: |
+    mov rax, 431534145987985698
+    mov rbx, rax
+    mov r14, rbx
+  expected:
+    register:
+      rax: '0x05FD1E04F810C122'
+      eax: '0xF810C122'
+      ax: '0xC122'
+      ah: '0xC1'
+      al: '0x22'
+      rbx: '0x05FD1E04F810C122'
+      ebx: '0xF810C122'
+      bx: '0xC122'
+      bh: '0xC1'
+      bl: '0x22'
+      r14: '0x05FD1E04F810C122'
+      r14d: '0xF810C122'
+      r14w: '0xC122'
+      r14b: '0x22'
+
+- asm: |
+    mov ah, -1
+    mov bh, ah
+    mov r13b, bh
+  expected:
+    register:
+      rax: '0xFF00'
+      eax: '0xFF00'
+      ax: '0xFF00'
+      ah: '0xFF'
+      al: '0x00'
+      rbx: '0xFF00'
+      ebx: '0xFF00'
+      bx: '0xFF00'
+      bh: '0xFF'
+      bl: '0x00'
+      r13: '0xFF'
+      r13d: '0xFF'
+      r13w: '0xFF'
+      r13b: '0xFF'
+
+- asm: |
+    mov rax, 40
+    mov byte [rax], 123
+  expected:
+    memory:
+      40: 123
+
+- asm: |
+    mov rax, 40
+    mov rbx, 20
+    mov byte [rax+rbx], -1
+  expected:
+    memory:
+      60: 255
+
+- asm: |
+    mov rax, 40
+    mov rbx, 20
+    mov byte [rax+rbx+33], -2
+  expected:
+    memory:
+      93: 254
+
+- asm: |
+    mov rax, 40
+    mov rbx, 4
+    mov byte [33+4*rbx+rax], 200
+  expected:
+    memory:
+      89: 200
+
+- asm: |
+    mov rax, 40
+    mov r15, 10
+    mov byte [33+rax+r15*2], 128
+  expected:
+    memory:
+      93: 128
+
+- asm: |
+    mov rax, 40
+    mov byte [rax], al
+  expected:
+    memory:
+      40: 40
+
+- asm: |
+    mov rax, 40
+    mov rbx, 20
+    mov r15b, 200
+    mov byte [rax+rbx], r15b
+  expected:
+    memory:
+      60: 200
+
+- asm: |
+    mov rax, 40
+    mov rbx, 20
+    mov r14b, 19
+    mov byte [rax+rbx+33], r14b
+  expected:
+    memory:
+      93: 19
+
+- asm: |
+    mov rax, 40
+    mov rbx, 4
+    mov cl, 200
+    mov byte [33+4*rbx+rax], cl
+  expected:
+    memory:
+      89: 200
+
+- asm: |
+    mov rax, 40
+    mov r15, 10
+    mov bl, 128
+    mov byte [33+rax+r15*2], bl
+  expected:
+    memory:
+      93: 128
+
+- asm: |
+    mov rax, 40
+    mov r15, 10
+    mov bl, -1
+    mov byte [33+rax+r15*2], bl
+  expected:
+    memory:
+      93: 255
+
+- asm: |
+    mov byte [40], 123
+    mov rax, 40
+    mov byte al, [rax]
+  expected:
+    register:
+      al: 123
+
+- asm: |
+    mov rax, 40
+    mov rbx, 20
+    mov byte [rax+rbx], 200
+    mov byte r15b, [rax+rbx]
+  expected:
+    register:
+      r15b: 200
+
+- asm: |
+    mov rax, 40
+    mov rbx, 20
+    mov byte [93], 19
+    mov byte r14b, [rax+rbx+33]
+  expected:
+    register:
+      r14b: 19
+
+- asm: |
+    mov rax, 40
+    mov rbx, 4
+    mov byte [33+4*rbx+rax], 200
+    mov byte ch, [33+4*rbx+rax]
+  expected:
+    register:
+      ch: 200
+
+- asm: |
+    mov rax, 40
+    mov r15, 10
+    mov byte [33+r15*2+rax], 128
+    mov byte bl, [33+rax+r15*2]
+  expected:
+    register:
+      bl: 128
+
+- asm: |
+    mov rax, 40
+    mov r15, 10
+    mov byte [2*r15+73], -1
+    mov byte bl, [33+rax+r15*2]
+  expected:
+    register:
+      bl: 255
