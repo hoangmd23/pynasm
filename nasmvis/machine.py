@@ -112,6 +112,7 @@ class Machine:
 
     def load_inst_and_data(self, entrypoint: int, inst: list[Inst], data: bytearray, data_labels: dict[str, int], bss_size: int) -> None:
         self.inst = inst
+        self.memory = bytearray(MEMORY_CAPACITY)
         self.memory[:len(data)] = data
         self.data_labels = data_labels
         self.entrypoint = entrypoint
@@ -119,6 +120,10 @@ class Machine:
 
     def reset(self) -> None:
         self.rip = self.entrypoint
+        for r in self.reg64:
+            self.set_register(r, 0, False)
+        for flag in self.flags:
+            self.flags[flag] = False
         self.set_register(R64.rbp, len(self.memory), False)
         self.set_register(R64.rsp, len(self.memory), False)
         self.running = True
