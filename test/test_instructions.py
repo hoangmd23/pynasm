@@ -56,3 +56,8 @@ def test_mov():
 def test_add():
     test_data_path = 'test_add.yaml'
     execute_tests(test_data_path)
+
+
+def test_sub():
+    test_data_path = 'test_sub.yaml'
+    execute_tests(test_data_path)
