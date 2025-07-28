@@ -175,6 +175,9 @@ class Machine:
             case _:
                 raise NotImplementedError(f'{op_size} is not implemented')
 
+    def read_flag(self, flag: Flags) -> bool:
+        return self.flags[flag]
+
 
     def compute_binop(self, dest: int, src: int, op: InstType, max_value: int, reg_width: int) -> tuple[int, bool]:
         # TODO: support registers of different width, are flags set differently?
@@ -270,6 +273,17 @@ class Machine:
                         dest_value = self.get_register(dest.name)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
+
+                        if op == InstType.add:
+                            # max supported immediate value for add is 32-bit value
+                            if reg_width == R64_WIDTH:
+                                src_value %= R32_MAX_VALUE
+                                # sign extend
+                                if get_sign_bit(src_value, R32_WIDTH) == 1:
+                                    for i in range(R64_WIDTH - 32):
+                                        src_value |= 1 << (i + 32)
+                            else:
+                                src_value %= reg_max_value
                     case (RegisterOp(), RegisterOp()):
                         src_value = self.get_register(src.name)
                         dest_value = self.get_register(dest.name)
@@ -292,6 +306,8 @@ class Machine:
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (MemoryOp(), RegisterOp()):
+                        # TODO: set operand size to register size
+                        op_size = OperandSize.byte
                         addr = dest.displacement
                         if dest.base is not None:
                             addr += self.get_register(dest.base)
@@ -303,6 +319,7 @@ class Machine:
                         dest_value = self.memory[addr]
                         reg_max_value = get_reg_max_value(src)
                         reg_width = get_reg_width(src)
+                        assert op_size == OperandSize.byte, "Not implemented"
                     case(MemoryOp(), int()):
                         addr = dest.displacement
                         if dest.base is not None:
@@ -318,6 +335,7 @@ class Machine:
                         reg_max_value = R8_MAX_VALUE
                     case _:
                         raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}\nInst: {inst}')
+                # TODO: assert dest, src and operand size have same size
                 res, clear_upper_bits = self.compute_binop(dest_value, src_value, op, reg_max_value, reg_width)
                 if isinstance(dest, RegisterOp):
                     self.set_register(dest.name, res, clear_upper_bits)
