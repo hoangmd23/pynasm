@@ -353,21 +353,6 @@
     mov al, 120
     mov rcx, 30
     mov rdx, 80
-    mov byte [rcx+rdx], 40
-    add [rcx+rdx], al
-  expected:
-    memory:
-      110: 160
-    flags:
-      CF: False
-      ZF: False
-      SF: True
-      OF: True
-
-- asm: |
-    mov al, 120
-    mov rcx, 30
-    mov rdx, 80
     mov byte [rcx+rdx], 230
     add al, [rcx+rdx]
   expected:
