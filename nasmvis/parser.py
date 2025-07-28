@@ -380,4 +380,7 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
             raise ParserError(f'Label {jmp_label} is not defined')
         jmp_inst.operands = [labels[jmp_label]]
 
+    if start_addr is None:
+        start_addr = 0
+
     return start_addr, inst, data, data_labels, bss_size
