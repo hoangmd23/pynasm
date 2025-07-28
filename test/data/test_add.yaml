@@ -1,0 +1,382 @@
+- asm: |
+    mov rax, 0
+    add rax, 139
+  expected:
+    register:
+      rax: 139
+      eax: 139
+      ax: 139
+      ah: 0
+      al: 139
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add eax, 255
+  expected:
+    register:
+      rax: 255
+      eax: 255
+      ax: 255
+      ah: 0
+      al: 255
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add ax, 33
+  expected:
+    register:
+      rax: 33
+      eax: 33
+      ax: 33
+      ah: 0
+      al: 33
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add ah, 123
+  expected:
+    register:
+      rax: 31488
+      eax: 31488
+      ax: 31488
+      ah: 123
+      al: 0
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add al, 42
+  expected:
+    register:
+      rax: 42
+      eax: 42
+      ax: 42
+      ah: 0
+      al: 42
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add rax, -1
+  expected:
+    register:
+      rax: 0xFFFFFFFFFFFFFFFF
+      eax: 0xFFFFFFFF
+      ax: 0xFFFF
+      ah: 0xFF
+      al: 0xFF
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add eax, -1
+  expected:
+    register:
+      rax: 0xFFFFFFFF
+      eax: 0xFFFFFFFF
+      ax: 0xFFFF
+      ah: 0xFF
+      al: 0xFF
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add ax, -1
+  expected:
+    register:
+      rax: 0xFFFF
+      eax: 0xFFFF
+      ax: 0xFFFF
+      ah: 0xFF
+      al: 0xFF
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add ah, -1
+  expected:
+    register:
+      rax: 0xFF00
+      eax: 0xFF00
+      ax: 0xFF00
+      ah: 0xFF
+      al: 0x00
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add al, -1
+  expected:
+    register:
+      rax: 0xFF
+      eax: 0xFF
+      ax: 0xFF
+      ah: 0x00
+      al: 0xFF
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add rax, -431534145987985698
+  expected:
+    register:
+      rax: 0x07EF3EDE
+      eax: 0x07EF3EDE
+      ax: 0x3EDE
+      ah: 0x3E
+      al: 0xDE
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add rax, 431534145987985698
+  expected:
+    register:
+      rax: 0xFFFFFFFFF810C122
+      eax: 0xF810C122
+      ax: 0xC122
+      ah: 0xC1
+      al: 0x22
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rax, 0
+    add ax, 431534145987985698
+  expected:
+    register:
+      rax: 0xC122
+      eax: 0xC122
+      ax: 0xC122
+      ah: 0xC1
+      al: 0x22
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rbx, 0
+    add rbx, -431534145987985698
+  expected:
+    register:
+      rbx: 0x07EF3EDE
+      ebx: 0x07EF3EDE
+      bx: 0x3EDE
+      bh: 0x3E
+      bl: 0xDE
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+
+- asm: |
+    mov rax, 123456789
+    mov rbx, 987654321
+    add rax, rbx
+  expected:
+    register:
+      rax: 1111111110
+      rbx: 987654321
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov ah, -1
+    mov bh, -10
+    add bh, ah
+  expected:
+    register:
+      rax: 0xFF00
+      rbx: 0xF500
+    flags:
+      CF: True
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov ah, 100
+    mov bh, 100
+    add bh, ah
+  expected:
+    register:
+      rax: 0x6400
+      rbx: 0xc800
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: True
+
+- asm: |
+    mov ax, 24230
+    mov bx, -24230
+    add ax, bx
+  expected:
+    register:
+      rax: 0
+      rbx: 41306
+    flags:
+      CF: True
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    mov rbx, 0
+    add ah, bh
+  expected:
+    register:
+      rax: 0
+      rbx: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov ax, -32768
+    add ax, -32768
+  expected:
+    register:
+      rax: 0
+    flags:
+      CF: True
+      ZF: True
+      SF: False
+      OF: True
+
+
+- asm: |
+    mov rax, 100
+    mov byte [rax], 20
+    add byte [rax], 103
+  expected:
+    memory:
+      100: 123
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov al, 40
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+rdx], -40
+    add [rcx+rdx], al
+  expected:
+    memory:
+      110: 0
+    flags:
+      CF: True
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov al, 120
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+rdx], 40
+    add [rcx+rdx], al
+  expected:
+    memory:
+      110: 160
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: True
+
+- asm: |
+    mov al, 120
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+rdx], 40
+    add [rcx+rdx], al
+  expected:
+    memory:
+      110: 160
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: True
+
+- asm: |
+    mov al, 120
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+rdx], 230
+    add al, [rcx+rdx]
+  expected:
+    register:
+      rax: 94
+    memory:
+      110: 230
+    flags:
+      CF: True
+      ZF: False
+      SF: False
+      OF: False
