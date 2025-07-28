@@ -52,138 +52,138 @@
     mov rax, -1
   expected:
     register:
-      rax: '0xFFFFFFFFFFFFFFFF'
-      eax: '0xFFFFFFFF'
-      ax: '0xFFFF'
-      ah: '0xFF'
-      al: '0xFF'
+      rax: 0xFFFFFFFFFFFFFFFF
+      eax: 0xFFFFFFFF
+      ax: 0xFFFF
+      ah: 0xFF
+      al: 0xFF
 
 - asm: |
     mov eax, -1
   expected:
     register:
-      rax: '0xFFFFFFFF'
-      eax: '0xFFFFFFFF'
-      ax: '0xFFFF'
-      ah: '0xFF'
-      al: '0xFF'
+      rax: 0xFFFFFFFF
+      eax: 0xFFFFFFFF
+      ax: 0xFFFF
+      ah: 0xFF
+      al: 0xFF
 
 - asm: |
     mov ax, -1
   expected:
     register:
-      rax: '0xFFFF'
-      eax: '0xFFFF'
-      ax: '0xFFFF'
-      ah: '0xFF'
-      al: '0xFF'
+      rax: 0xFFFF
+      eax: 0xFFFF
+      ax: 0xFFFF
+      ah: 0xFF
+      al: 0xFF
 
 - asm: |
     mov ah, -1
   expected:
     register:
-      rax: '0xFF00'
-      eax: '0xFF00'
-      ax: '0xFF00'
-      ah: '0xFF'
-      al: '0x00'
+      rax: 0xFF00
+      eax: 0xFF00
+      ax: 0xFF00
+      ah: 0xFF
+      al: 0x00
 
 - asm: |
     mov al, -1
   expected:
     register:
-      rax: '0xFF'
-      eax: '0xFF'
-      ax: '0xFF'
-      ah: '0x00'
-      al: '0xFF'
+      rax: 0xFF
+      eax: 0xFF
+      ax: 0xFF
+      ah: 0x00
+      al: 0xFF
 
 - asm: |
     mov rax, -431534145987985698
   expected:
     register:
-      rax: '0xFA02E1FB07EF3EDE'
-      eax: '0x07EF3EDE'
-      ax: '0x3EDE'
-      ah: '0x3E'
-      al: '0xDE'
+      rax: 0xFA02E1FB07EF3EDE
+      eax: 0x07EF3EDE
+      ax: 0x3EDE
+      ah: 0x3E
+      al: 0xDE
 
 - asm: |
     mov rax, 431534145987985698
   expected:
     register:
-      rax: '0x05FD1E04F810C122'
-      eax: '0xF810C122'
-      ax: '0xC122'
-      ah: '0xC1'
-      al: '0x22'
+      rax: 0x05FD1E04F810C122
+      eax: 0xF810C122
+      ax: 0xC122
+      ah: 0xC1
+      al: 0x22
 
 - asm: |
     mov ax, 431534145987985698
   expected:
     register:
-      rax: '0xC122'
-      eax: '0xC122'
-      ax: '0xC122'
-      ah: '0xC1'
-      al: '0x22'
+      rax: 0xC122
+      eax: 0xC122
+      ax: 0xC122
+      ah: 0xC1
+      al: 0x22
 
 - asm: |
     mov rbx, -431534145987985698
   expected:
     register:
-      rbx: '0xFA02E1FB07EF3EDE'
-      ebx: '0x07EF3EDE'
-      bx: '0x3EDE'
-      bh: '0x3E'
-      bl: '0xDE'
+      rbx: 0xFA02E1FB07EF3EDE
+      ebx: 0x07EF3EDE
+      bx: 0x3EDE
+      bh: 0x3E
+      bl: 0xDE
 
 - asm: |
     mov rbx, 431534145987985698
   expected:
     register:
-      rbx: '0x05FD1E04F810C122'
-      ebx: '0xF810C122'
-      bx: '0xC122'
-      bh: '0xC1'
-      bl: '0x22'
+      rbx: 0x05FD1E04F810C122
+      ebx: 0xF810C122
+      bx: 0xC122
+      bh: 0xC1
+      bl: 0x22
 
 - asm: |
     mov bx, 431534145987985698
   expected:
     register:
-      rbx: '0xC122'
-      ebx: '0xC122'
-      bx: '0xC122'
-      bh: '0xC1'
-      bl: '0x22'
+      rbx: 0xC122
+      ebx: 0xC122
+      bx: 0xC122
+      bh: 0xC1
+      bl: 0x22
 
 - asm: |
     mov r15, -431534145987985698
   expected:
     register:
-      r15: '0xFA02E1FB07EF3EDE'
-      r15d: '0x07EF3EDE'
-      r15w: '0x3EDE'
-      r15b: '0xDE'
+      r15: 0xFA02E1FB07EF3EDE
+      r15d: 0x07EF3EDE
+      r15w: 0x3EDE
+      r15b: 0xDE
 
 - asm: |
     mov r15, 431534145987985698
   expected:
     register:
-      r15: '0x05FD1E04F810C122'
-      r15d: '0xF810C122'
-      r15w: '0xC122'
-      r15b: '0x22'
+      r15: 0x05FD1E04F810C122
+      r15d: 0xF810C122
+      r15w: 0xC122
+      r15b: 0x22
 
 - asm: |
     mov r15w, 431534145987985698
   expected:
     register:
-      r15: '0xC122'
-      r15d: '0xC122'
-      r15w: '0xC122'
-      r15b: '0x22'
+      r15: 0xC122
+      r15d: 0xC122
+      r15w: 0xC122
+      r15b: 0x22
 
 - asm: |
     mov rax, 431534145987985698
@@ -191,20 +191,20 @@
     mov r14, rbx
   expected:
     register:
-      rax: '0x05FD1E04F810C122'
-      eax: '0xF810C122'
-      ax: '0xC122'
-      ah: '0xC1'
-      al: '0x22'
-      rbx: '0x05FD1E04F810C122'
-      ebx: '0xF810C122'
-      bx: '0xC122'
-      bh: '0xC1'
-      bl: '0x22'
-      r14: '0x05FD1E04F810C122'
-      r14d: '0xF810C122'
-      r14w: '0xC122'
-      r14b: '0x22'
+      rax: 0x05FD1E04F810C122
+      eax: 0xF810C122
+      ax: 0xC122
+      ah: 0xC1
+      al: 0x22
+      rbx: 0x05FD1E04F810C122
+      ebx: 0xF810C122
+      bx: 0xC122
+      bh: 0xC1
+      bl: 0x22
+      r14: 0x05FD1E04F810C122
+      r14d: 0xF810C122
+      r14w: 0xC122
+      r14b: 0x22
 
 - asm: |
     mov ah, -1
@@ -212,20 +212,20 @@
     mov r13b, bh
   expected:
     register:
-      rax: '0xFF00'
-      eax: '0xFF00'
-      ax: '0xFF00'
-      ah: '0xFF'
-      al: '0x00'
-      rbx: '0xFF00'
-      ebx: '0xFF00'
-      bx: '0xFF00'
-      bh: '0xFF'
-      bl: '0x00'
-      r13: '0xFF'
-      r13d: '0xFF'
-      r13w: '0xFF'
-      r13b: '0xFF'
+      rax: 0xFF00
+      eax: 0xFF00
+      ax: 0xFF00
+      ah: 0xFF
+      al: 0x00
+      rbx: 0xFF00
+      ebx: 0xFF00
+      bx: 0xFF00
+      bh: 0xFF
+      bl: 0x00
+      r13: 0xFF
+      r13d: 0xFF
+      r13w: 0xFF
+      r13b: 0xFF
 
 - asm: |
     mov rax, 40
