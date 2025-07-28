@@ -274,7 +274,7 @@ class Machine:
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
 
-                        if op == InstType.add:
+                        if op in [InstType.add, InstType.sub, InstType.cmp]:
                             # max supported immediate value for add is 32-bit value
                             if reg_width == R64_WIDTH:
                                 src_value %= R32_MAX_VALUE
