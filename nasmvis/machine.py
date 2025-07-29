@@ -198,11 +198,11 @@ class Machine:
                 self.flags[Flags.OF] = (True if dest_sign == src_sign and res_sign != dest_sign else False)
                 clear_upper_bits = True
             case InstType.xor:
-                self.flags[Flags.ZF] = True
-                self.flags[Flags.SF] = False
+                res = dest ^ src
+                self.flags[Flags.ZF] = res % max_value == 0
+                self.flags[Flags.SF] = get_sign_bit(res, reg_width) == 1
                 self.flags[Flags.CF] = False
                 self.flags[Flags.OF] = False
-                res = dest ^ src
                 clear_upper_bits = True
             case InstType.mov | InstType.movzx:
                 res = src
@@ -274,7 +274,7 @@ class Machine:
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
 
-                        if op in [InstType.add, InstType.sub, InstType.cmp]:
+                        if op in [InstType.add, InstType.sub, InstType.cmp, InstType.xor]:
                             # max supported immediate value for add is 32-bit value
                             if reg_width == R64_WIDTH:
                                 src_value %= R32_MAX_VALUE
