@@ -1,0 +1,33 @@
+- asm: |
+    do:
+      add rax, 10
+      ret
+    
+    _start:
+      mov rax, 0
+      call do
+  expected:
+    register:
+      rax: 10
+
+- asm: |
+    do:
+      add rax, 10
+      ret
+    
+    foo:
+      add rbx, 20
+      add rax, 1
+      ret
+    
+    _start:
+      mov rax, 0
+      mov rbx, 0
+      call do
+      add rax, 1
+      call foo
+      add rbx, 1
+  expected:
+    register:
+      rax: 12
+      rbx: 21
