@@ -1,0 +1,214 @@
+# jmp
+- asm: |
+    mov rax, 10
+    jmp label
+    add rax, 10
+    label:
+    add rax, 10
+  expected:
+    register:
+      rax: 20
+
+# je
+- asm: |
+    mov rax, 10
+    cmp rax, 10
+    je label
+    add rax, 10
+    label:
+    add rax, 10
+  expected:
+    register:
+      rax: 20
+
+- asm: |
+    mov rax, 10
+    mov rcx, 9
+    cmp rax, rcx 
+    je label
+    add rax, 10
+    label:
+    add rax, 10
+  expected:
+    register:
+      rax: 30
+
+# jne
+- asm: |
+    mov rax, 10
+    cmp rax, 10
+    jne label
+    add rax, 10
+    label:
+    add rax, 10
+  expected:
+    register:
+      rax: 30
+
+- asm: |
+    mov rax, 10
+    mov rcx, 9
+    cmp rax, rcx 
+    jne label
+    add rax, 10
+    label:
+    add rax, 10
+  expected:
+    register:
+      rax: 20
+
+# jnz
+- asm: |
+    mov rax, 10
+    cmp rax, 10
+    jnz label
+    add rax, 10
+    label:
+    add rax, 10
+  expected:
+    register:
+      rax: 30
+
+- asm: |
+    mov rax, 10
+    mov rcx, 9
+    cmp rax, rcx 
+    jnz label
+    add rax, 10
+    label:
+    add rax, 10
+  expected:
+    register:
+      rax: 20
+
+# jbe
+- asm: |
+    mov al, 250
+    cmp al, 230
+    jbe label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 253
+
+- asm: |
+    mov al, 220
+    mov bl, 230
+    cmp al, bl
+    jbe label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 221
+
+- asm: |
+    mov al, -10
+    mov bl, 10
+    cmp al, bl
+    jbe label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 249
+
+- asm: |
+    mov al, -10
+    mov bl, -10
+    cmp al, bl
+    jbe label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 247
+
+# jae
+- asm: |
+    mov al, 250
+    cmp al, 230
+    jae label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 251
+
+- asm: |
+    mov al, 220
+    mov bl, 230
+    cmp al, bl
+    jae label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 223
+
+- asm: |
+    mov al, -10
+    mov bl, 10
+    cmp al, bl
+    jae label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 247
+
+- asm: |
+    mov al, 10
+    mov bl, 10
+    cmp al, bl
+    jae label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 11
+
+# jge
+- asm: |
+    mov al, 10
+    cmp al, -1
+    jge label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 11
+
+- asm: |
+    mov al, 10
+    mov bl, 10
+    cmp al, bl
+    jge label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 11
+
+- asm: |
+    mov al, 10
+    mov bl, 20
+    cmp al, bl
+    jge label
+    add al, 2
+    label:
+    add al, 1
+  expected:
+    register:
+      rax: 13
