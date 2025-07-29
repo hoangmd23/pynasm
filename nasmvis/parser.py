@@ -180,14 +180,20 @@ def parse_dec(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
     return Inst(line, InstType.dec, operand_size, [dest_op])
 
 
-def parse_inc(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+def parse_inc(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
     operand_size: OperandSize | None = parse_op_size(lexer)
-    dest = lexer.expect(TokenType.Keyword).value
+
+
+    dest = lexer.expect(TokenType.Keyword, TokenType.OpeningSquareBracket)
     if dest in equ_labels:
-        dest = equ_labels[dest]
-    if dest not in register_names:
-        raise ParserError(f'{line}: Unexpected destination operand {dest}')
-    dest_op = RegisterOp(dest)
+        dest_op = equ_labels[dest.value]
+    elif dest.type == TokenType.Keyword and dest.value in register_names:
+        dest_op = RegisterOp(dest.value)
+    elif dest.type == TokenType.OpeningSquareBracket:
+        dest_op = parse_memory_op(lexer, line, data_labels, equ_labels)
+    else:
+        raise ParserError(f'{line}: Invalid destination operand')
+
     return Inst(line, InstType.inc, operand_size, [dest_op])
 
 
@@ -333,7 +339,7 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                     case 'cmp':
                         inst.append(parse_cmp(lexer, line, data_labels, equ_labels))
                     case 'inc':
-                        inst.append(parse_inc(lexer, line, equ_labels))
+                        inst.append(parse_inc(lexer, line, data_labels, equ_labels))
                     case 'dec':
                         inst.append(parse_dec(lexer, line, equ_labels))
                     case 'jne' | 'jbe' | 'jae' | 'jmp' | 'jnz' | 'jge' | 'je':
