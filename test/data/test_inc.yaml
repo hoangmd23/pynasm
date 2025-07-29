@@ -1,0 +1,320 @@
+- asm: |
+    mov rax, 0
+    inc rax
+  expected:
+    register:
+      rax: 1
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    inc eax
+  expected:
+    register:
+      rax: 1
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    inc ax
+  expected:
+    register:
+      rax: 1
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    inc ah
+  expected:
+    register:
+      rax: 0x100
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 0
+    inc al
+  expected:
+    register:
+      rax: 1
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, -1
+    inc rax
+  expected:
+    register:
+      rax: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, -1
+    inc eax
+  expected:
+    register:
+      rax: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, -1
+    inc ax
+  expected:
+    register:
+      rax: 0xFFFFFFFFFFFF0000
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, -1
+    inc ah
+  expected:
+    register:
+      rax: 0xFFFFFFFFFFFF00FF
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, -1
+    inc al
+  expected:
+    register:
+      rax: 0xFFFFFFFFFFFFFF00
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, -431534145987985698
+    inc rax
+  expected:
+    register:
+      rax: 0xFA02E1FB07EF3EDF
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rax, 431534145987985698
+    inc rax
+  expected:
+    register:
+      rax: 431534145987985699
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov ax, 431534145987985698
+    inc ax
+  expected:
+    register:
+      rax: 0xC123
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov ah, 255
+    inc ah
+  expected:
+    register:
+      rax: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov al, 127
+    inc al
+  expected:
+    register:
+      rax: 128
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: True
+
+- asm: |
+    mov eax, 4294967295
+    inc eax
+  expected:
+    register:
+      rax: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 18446744073709551615
+    inc rax
+  expected:
+    register:
+      rax: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 18446744073709551615
+    inc eax
+  expected:
+    register:
+      rax: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 18446744073709551615
+    inc ax
+  expected:
+    register:
+      rax: 0xFFFFFFFFFFFF0000
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 18446744073709551615
+    inc ah
+  expected:
+    register:
+      rax: 0xFFFFFFFFFFFF00FF
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 18446744073709551615
+    inc al
+  expected:
+    register:
+      rax: 0xFFFFFFFFFFFFFF00
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
+
+- asm: |
+    mov rax, 100
+    mov byte [rax], 20
+    inc byte [rax]
+  expected:
+    memory:
+      100: 21
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+rdx], -40
+    inc byte [rcx+rdx]
+  expected:
+    memory:
+      110: 217
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+rdx], 40
+    inc byte [rcx+rdx]
+  expected:
+    memory:
+      110: 41
+    flags:
+      CF: False
+      ZF: False
+      SF: False
+      OF: False
+
+- asm: |
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+2*rdx], 230
+    inc byte [rcx+2*rdx]
+  expected:
+    memory:
+      190: 231
+    flags:
+      CF: False
+      ZF: False
+      SF: True
+      OF: False
+
+- asm: |
+    mov rcx, 30
+    mov rdx, 80
+    mov byte [rcx+2*rdx], -1
+    inc byte [rcx+2*rdx]
+  expected:
+    memory:
+      190: 0
+    flags:
+      CF: False
+      ZF: True
+      SF: False
+      OF: False
