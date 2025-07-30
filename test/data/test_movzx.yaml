@@ -1,0 +1,81 @@
+- asm: |
+    mov al, 10
+    movzx bx, al
+    movzx ecx, al
+    movzx rdx, al
+  expected:
+    register:
+      rbx: 10
+      ecx: 10
+      rdx: 10
+
+- asm: |
+    mov al, -1
+    movzx bx, al
+    movzx ecx, al
+    movzx rdx, al
+  expected:
+    register:
+      rbx: 255
+      ecx: 255
+      rdx: 255
+
+- asm: |
+    mov ax, 10000
+    movzx ecx, ax
+    movzx rdx, ax
+  expected:
+    register:
+      ecx: 10000
+      rdx: 10000
+
+- asm: |
+    mov ax, -1
+    movzx ecx, ax
+    movzx rdx, ax
+  expected:
+    register:
+      ecx: 65535
+      rdx: 65535
+
+- asm: |
+    mov byte [10], 10
+    movzx bx, byte [10]
+    movzx ecx, byte [10]
+    movzx rdx, byte [10]
+  expected:
+    register:
+      rbx: 10
+      ecx: 10
+      rdx: 10
+
+- asm: |
+    mov byte [10], -1
+    movzx bx, byte [10]
+    movzx ecx, byte [10]
+    movzx rdx, byte [10]
+  expected:
+    register:
+      rbx: 255
+      ecx: 255
+      rdx: 255
+
+- asm: |
+    mov byte [10], 100
+    mov byte [11], 50
+    movzx ecx, word [10]
+    movzx rdx, word [10]
+  expected:
+    register:
+      ecx: 12900
+      rdx: 12900
+
+- asm: |
+    mov byte [10], 200
+    mov byte [11], -1
+    movzx ecx, word [10]
+    movzx rdx, word [10]
+  expected:
+    register:
+      ecx: 65480
+      rdx: 65480
