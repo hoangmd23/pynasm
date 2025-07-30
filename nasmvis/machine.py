@@ -93,6 +93,22 @@ def get_reg_by_name(name: str) -> RegisterType:
     return reg
 
 
+def get_reg_op_size(name: str) -> OperandSize:
+    if name in R64:
+        op_size = OperandSize.qword
+    elif name in R32:
+        op_size = OperandSize.dword
+    elif name in R16:
+        op_size = OperandSize.word
+    elif name in RH:
+        op_size = OperandSize.byte
+    elif name in RL:
+        op_size = OperandSize.byte
+    else:
+        raise MachineException(f'Unknown register: {name}')
+    return op_size
+
+
 class Machine:
     def __init__(self):
         self.inst: list[Inst | None] = []
@@ -168,8 +184,14 @@ class Machine:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for get_register')
 
     def read_memory(self, addr: int, size: OperandSize) -> int:
-        assert size == OperandSize.byte
-        return self.memory[addr]
+        match size:
+            case OperandSize.byte:
+                res = self.memory[addr]
+            case OperandSize.word:
+                res = self.memory[addr] + self.memory[addr+1] * 256
+            case _:
+                raise NotImplementedError(f'{size} is not implemented')
+        return res
 
     def write_memory(self, addr: int, value: int, op_size: OperandSize):
         match op_size:
@@ -298,13 +320,16 @@ class Machine:
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (RegisterOp(), MemoryOp()):
+                        if op_size is None:
+                             op_size = get_reg_op_size(dest.name)
+                        assert op_size in [OperandSize.byte, OperandSize.word], f'{op_size} is not implemented'
                         addr = src.displacement
                         if src.base is not None:
                             addr += self.get_register(src.base)
                         if src.index is not None:
                             addr += self.get_register(src.index)*src.scale
                         # TODO: need to get multiple bytes depending on register width
-                        src_value = self.memory[addr]
+                        src_value = self.read_memory(addr, op_size)
                         dest_value = self.get_register(dest.name)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
@@ -333,7 +358,7 @@ class Machine:
                         src_value = src
                         # TODO: need to get multiple bytes depending on register width
                         dest_value = self.memory[addr]
-                        assert op_size == OperandSize.byte, "Not implemented"
+                        assert op_size == OperandSize.byte, f"{op_size} not implemented"
                         reg_width = R8_WIDTH
                         reg_max_value = R8_MAX_VALUE
                     case _:
