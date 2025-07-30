@@ -442,12 +442,12 @@ class Machine:
                                 raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.rip += 1
                     case InstType.call:
-                        self.push_onto_stack(self.rip + 1)
+                        self.push_onto_stack(self.rip + 1, 8)
                         self.rip = operand
                     case _:
                         raise NotImplementedError(f'{line}: Unary operator {op} is not implemented')
             case Inst(_, InstType.ret, _, _):
-                self.rip = self.pop_from_stack()
+                self.rip = self.pop_from_stack(8)
             case Inst(_, InstType.exit, _, _):
                 self.running = False
             case _:
