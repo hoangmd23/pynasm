@@ -1,0 +1,91 @@
+- asm: |
+    mov al, 10
+    movsx bx, al
+    movsx ecx, al
+    movsx rdx, al
+  expected:
+    register:
+      rbx: 10
+      rcx: 10
+      rdx: 10
+
+- asm: |
+    mov al, -1
+    movsx bx, al
+    movsx ecx, al
+    movsx rdx, al
+  expected:
+    register:
+      rbx: 0xFFFF
+      rcx: 0xFFFFFFFF
+      rdx: 0xFFFFFFFFFFFFFFFF
+
+- asm: |
+    mov ax, 10000
+    movsx ecx, ax
+    movsx rdx, ax
+  expected:
+    register:
+      rcx: 10000
+      rdx: 10000
+
+- asm: |
+    mov ax, -1
+    movsx ecx, ax
+    movsx rdx, ax
+  expected:
+    register:
+      rcx: 0xFFFFFFFF
+      rdx: 0xFFFFFFFFFFFFFFFF
+
+- asm: |
+    mov byte [10], 10
+    movsx bx, byte [10]
+    movsx ecx, byte [10]
+    movsx rdx, byte [10]
+  expected:
+    register:
+      rbx: 10
+      rcx: 10
+      rdx: 10
+
+- asm: |
+    mov byte [10], -1
+    movsx bx, byte [10]
+    movsx ecx, byte [10]
+    movsx rdx, byte [10]
+  expected:
+    register:
+      rbx: 0xFFFF
+      rcx: 0xFFFFFFFF
+      rdx: 0xFFFFFFFFFFFFFFFF
+
+#- asm: |
+#    mov byte [10], 100
+#    mov byte [11], 50
+#    movsx ecx, word [10]
+#    movsx rdx, word [10]
+#  expected:
+#    register:
+#      rcx: 12900
+#      rdx: 12900
+#
+#- asm: |
+#    mov byte [10], 200
+#    mov byte [11], -1
+#    movsx ecx, word [10]
+#    movsx rdx, word [10]
+#  expected:
+#    register:
+#      rcx: 0xFFFFFFC8
+#      rdx: 0xFFFFFFFFFFFFFFC8
+#
+#- asm: |
+#    mov byte [10], 20
+#    mov byte [11], -1
+#    movsx ecx, word [10]
+#    movsx rdx, word [10]
+#  expected:
+#    register:
+#      rcx: 0xFFFFFF14
+#      rdx: 0xFFFFFFFFFFFFFF14
