@@ -1,0 +1,354 @@
+- asm: |
+    mov rsp, 100
+    mov rax, 1161981756646125696
+    push rax
+  expected:
+    register:
+      rsp: 92
+    memory:
+      92: 128
+      93: 112
+      94: 96
+      95: 80
+      96: 64
+      97: 48
+      98: 32
+      99: 16
+
+- asm: |
+    mov rsp, 100
+    mov rax, 1161981756646125696
+    push rax
+    mov rbx, 270544960
+    push rbx
+  expected:
+    register:
+      rsp: 84
+    memory:
+      84: 64
+      85: 48
+      86: 32
+      87: 16
+      88: 0
+      89: 0
+      90: 0
+      91: 0
+      92: 128
+      93: 112
+      94: 96
+      95: 80
+      96: 64
+      97: 48
+      98: 32
+      99: 16
+
+- asm: |
+    mov rsp, 92
+    mov byte [92], 128
+    mov byte [93], 112
+    mov byte [94], 96
+    mov byte [95], 80
+    mov byte [96], 64
+    mov byte [97], 48
+    mov byte [98], 32
+    mov byte [99], 16
+    pop rax
+  expected:
+    register:
+      rsp: 100
+      rax: 1161981756646125696
+
+- asm: |
+    mov rsp, 92
+    mov byte [92], 128
+    mov byte [93], 112
+    mov byte [94], 96
+    mov byte [95], 80
+    mov byte [96], 64
+    mov byte [97], 48
+    mov byte [98], 32
+    mov byte [99], 16
+    mov byte [100], 64
+    mov byte [101], 48
+    mov byte [102], 32
+    mov byte [103], 16
+    mov byte [104], 0
+    mov byte [105], 0
+    mov byte [106], 0
+    mov byte [107], 0
+    pop rax
+    pop rbx
+  expected:
+    register:
+      rsp: 108
+      rax: 1161981756646125696
+      rbx: 270544960
+
+- asm: |
+    mov rax, 123456789
+    push rax
+    mov rax, 987654321
+    push rax
+    pop rbx
+    pop rcx
+  expected:
+    register:
+      rbx: 987654321
+      rcx: 123456789
+
+- asm: |
+    mov rsp, 100
+    push 1
+    push 12345
+    push 0
+    push -100
+    push 72057594037927935
+  expected:
+    register:
+      rsp: 60
+    memory:
+      # 72057594037927935
+      60: 255
+      61: 255
+      62: 255
+      63: 255
+      64: 255
+      65: 255
+      66: 255
+      67: 0
+      # -100
+      68: 156
+      69: 255
+      70: 255
+      71: 255
+      72: 255
+      73: 255
+      74: 255
+      75: 255
+      # 0
+      76: 0
+      77: 0
+      78: 0
+      79: 0
+      80: 0
+      81: 0
+      82: 0
+      83: 0
+      # 12345
+      84: 57
+      85: 48
+      86: 0
+      87: 0
+      88: 0
+      89: 0
+      90: 0
+      91: 0
+      # 1
+      92: 1
+      93: 0
+      94: 0
+      95: 0
+      96: 0
+      97: 0
+      98: 0
+      99: 0
+
+- asm: |
+    mov rsp, 200
+    mov byte [60], 255
+    mov byte [61], 255
+    mov byte [62], 255
+    mov byte [63], 255
+    mov byte [64], 255
+    mov byte [65], 255
+    mov byte [66], 255
+    mov byte [67], 0
+    mov byte [68], 156
+    mov byte [69], 255
+    mov byte [70], 255
+    mov byte [71], 255
+    mov byte [72], 255
+    mov byte [73], 255
+    mov byte [74], 255
+    mov byte [75], 255
+    mov byte [76], 0
+    mov byte [77], 0
+    mov byte [78], 0
+    mov byte [79], 0
+    mov byte [80], 0
+    mov byte [81], 0
+    mov byte [82], 0
+    mov byte [83], 0
+    mov byte [84], 57
+    mov byte [85], 48
+    mov byte [86], 0
+    mov byte [87], 0
+    mov byte [88], 0
+    mov byte [89], 0
+    mov byte [90], 0
+    mov byte [91], 0
+    mov byte [92], 1
+    mov byte [93], 0
+    mov byte [94], 0
+    mov byte [95], 0
+    mov byte [96], 0
+    mov byte [97], 0
+    mov byte [98], 0
+    mov byte [99], 0
+    push qword [92]
+    mov rbx, 20
+    mov rdx, 20
+    push qword [rbx+2*rdx+24]
+    push qword [76]
+    mov rax, 68
+    push qword [rax]
+    push qword [60]
+  expected:
+    register:
+      rsp: 160
+    memory:
+      # 72057594037927935
+      160: 255
+      161: 255
+      162: 255
+      163: 255
+      164: 255
+      165: 255
+      166: 255
+      167: 0
+      # -100
+      168: 156
+      169: 255
+      170: 255
+      171: 255
+      172: 255
+      173: 255
+      174: 255
+      175: 255
+      # 0
+      176: 0
+      177: 0
+      178: 0
+      179: 0
+      180: 0
+      181: 0
+      182: 0
+      183: 0
+      # 12345
+      184: 57
+      185: 48
+      186: 0
+      187: 0
+      188: 0
+      189: 0
+      190: 0
+      191: 0
+      # 1
+      192: 1
+      193: 0
+      194: 0
+      195: 0
+      196: 0
+      197: 0
+      198: 0
+      199: 0
+
+- asm: |
+    mov rsp, 60
+    mov byte [60], 255
+    mov byte [61], 255
+    mov byte [62], 255
+    mov byte [63], 255
+    mov byte [64], 255
+    mov byte [65], 255
+    mov byte [66], 255
+    mov byte [67], 0
+    mov byte [68], 156
+    mov byte [69], 255
+    mov byte [70], 255
+    mov byte [71], 255
+    mov byte [72], 255
+    mov byte [73], 255
+    mov byte [74], 255
+    mov byte [75], 255
+    mov byte [76], 0
+    mov byte [77], 0
+    mov byte [78], 0
+    mov byte [79], 0
+    mov byte [80], 0
+    mov byte [81], 0
+    mov byte [82], 0
+    mov byte [83], 0
+    mov byte [84], 57
+    mov byte [85], 48
+    mov byte [86], 0
+    mov byte [87], 0
+    mov byte [88], 0
+    mov byte [89], 0
+    mov byte [90], 0
+    mov byte [91], 0
+    mov byte [92], 1
+    mov byte [93], 0
+    mov byte [94], 0
+    mov byte [95], 0
+    mov byte [96], 0
+    mov byte [97], 0
+    mov byte [98], 0
+    mov byte [99], 0
+    pop qword [160] 
+    mov rax, 168
+    pop qword [rax] 
+    mov rbx, 15
+    mov rcx, 20
+    pop qword [rbx+rcx*2+151] 
+    pop qword [184] 
+    pop qword [192]
+  expected:
+    register:
+      rsp: 100
+    memory:
+      # 72057594037927935
+      160: 255
+      161: 255
+      162: 255
+      163: 255
+      164: 255
+      165: 255
+      166: 255
+      167: 0
+      # -100
+      168: 156
+      169: 255
+      170: 255
+      171: 255
+      172: 255
+      173: 255
+      174: 255
+      175: 255
+      # 0
+      176: 0
+      177: 0
+      178: 0
+      179: 0
+      180: 0
+      181: 0
+      182: 0
+      183: 0
+      # 12345
+      184: 57
+      185: 48
+      186: 0
+      187: 0
+      188: 0
+      189: 0
+      190: 0
+      191: 0
+      # 1
+      192: 1
+      193: 0
+      194: 0
+      195: 0
+      196: 0
+      197: 0
+      198: 0
+      199: 0
