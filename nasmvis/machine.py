@@ -122,11 +122,14 @@ class Machine:
         self.rip = self.entrypoint
         for r in self.reg64:
             self.set_register(r, 0, False)
-        for flag in self.flags:
-            self.flags[flag] = False
+        self.set_flags(False)
         self.set_register(R64.rbp, len(self.memory), False)
         self.set_register(R64.rsp, len(self.memory), False)
         self.running = True
+
+    def set_flags(self, value: bool):
+        for flag in self.flags:
+            self.flags[flag] = value
 
     def set_register(self, reg: R64 | R32 | R16 | RH | RL | str, value: int, clear_upper_bits: bool):
         if isinstance(reg, str):
