@@ -206,24 +206,45 @@ def parse_jmp(lexer: Lexer, line: int, inst_type: InstType) -> tuple[Inst, str]:
     return Inst(line, inst_type), jmp_label
 
 
-def parse_push(lexer: Lexer, line: int, equ_labels: dict[str, str]) -> Inst:
+def parse_push(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
     operand_size: OperandSize | None = parse_op_size(lexer)
-    value = lexer.expect(TokenType.Keyword).value
-    if value in equ_labels:
-        value = equ_labels[value]
-    if value in register_names:
-        return Inst(line, InstType.push, operand_size, [RegisterOp(value)])
+    token = lexer.expect(TokenType.Keyword, TokenType.Identifier, TokenType.Number, TokenType.OpeningSquareBracket)
+    # TODO: add support for pushing .data
+    if token.type == TokenType.Keyword and token.value in register_names:
+        op = RegisterOp(token.value)
+    elif token.type == TokenType.Number:
+        op = int(token.value)
+    elif token.type == TokenType.Identifier:
+        if token.value in equ_labels:
+            op = int(equ_labels[token.value])
+        else:
+            op = token.value
+    elif token.type == TokenType.OpeningSquareBracket:
+        op = parse_memory_op(lexer, line, data_labels, equ_labels)
     else:
-        raise ParserError(f'{line}: Invalid push operand {value}')
+        raise ParserError(f'{line}: Invalid push operand {token}')
+
+    return Inst(line, InstType.push, operand_size, [op])
 
 
-def parse_pop(lexer: Lexer, line: int) -> Inst:
+def parse_pop(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
     operand_size: OperandSize | None = parse_op_size(lexer)
-    token = lexer.expect(TokenType.Keyword)
-    if token.value in register_names:
-        return Inst(line, InstType.pop, operand_size, [RegisterOp(token.value)])
+    token = lexer.expect(TokenType.Keyword, TokenType.Identifier, TokenType.Number, TokenType.OpeningSquareBracket)
+    if token.type == TokenType.Keyword and token.value in register_names:
+        op = RegisterOp(token.value)
+    elif token.type == TokenType.Number:
+        op = int(token.value)
+    elif token.type == TokenType.Identifier:
+        if token.value in equ_labels:
+            op = int(equ_labels[token.value])
+        else:
+            op = token.value
+    elif token.type == TokenType.OpeningSquareBracket:
+        op = parse_memory_op(lexer, line, data_labels, equ_labels)
     else:
-        raise ParserError(f'{line}: Invalid pop operand {token.value}')
+        raise ParserError(f'{line}: Invalid pop operand {token}')
+
+    return Inst(line, InstType.pop, operand_size, [op])
 
 
 def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int], dict[str, int], int, dict[str, str], set[int]]:
@@ -351,9 +372,9 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                         jmp_insts.append((jmp_inst, jmp_label))
                         inst.append(jmp_inst)
                     case 'push':
-                        inst.append(parse_push(lexer, line, equ_labels))
+                        inst.append(parse_push(lexer, line, data_labels, equ_labels))
                     case 'pop':
-                        inst.append(parse_pop(lexer, line))
+                        inst.append(parse_pop(lexer, line, data_labels, equ_labels))
                     case 'call':
                         jmp_inst, jmp_label = parse_jmp(lexer, line, InstType.call)
                         jmp_insts.append((jmp_inst, jmp_label))

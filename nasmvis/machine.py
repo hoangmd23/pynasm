@@ -238,20 +238,20 @@ class Machine:
                 raise NotImplementedError(f'Binary operator {op} is not implemented')
         return res, clear_upper_bits
 
-    def push_onto_stack(self, value: int) -> None:
+    def push_onto_stack(self, value: int, size: int) -> None:
         # TODO: we can also push 2 bytes, e.g. ax
-        self.set_register(R64.rsp, self.get_register(R64.rsp) - 8, clear_upper_bits=False)
-        for i in range(8):
-            self.memory[self.get_register(R64.rsp) + i] = value >> (i * 8) & 0xFF
+        self.set_register(R64.rsp, self.get_register(R64.rsp) - size, clear_upper_bits=False)
+        for i in range(size):
+            self.memory[self.get_register(R64.rsp) + i] = value >> (i * size) & 0xFF
 
-    def pop_from_stack(self) -> int:
+    def pop_from_stack(self, size: int) -> int:
         # TODO: we can also pop 2 or 4 bytes
         if self.get_register(R64.rsp) >= len(self.memory):
             raise MachineException(f'Stack underflow')
         value = 0
-        for i in range(8):
-            value += self.memory[self.get_register(R64.rsp) + i] << (i * 8)
-        self.set_register(R64.rsp, self.get_register(R64.rsp) + 8, clear_upper_bits=False)
+        for i in range(size):
+            value += self.memory[self.get_register(R64.rsp) + i] << (i * size)
+        self.set_register(R64.rsp, self.get_register(R64.rsp) + size, clear_upper_bits=False)
         return value
 
     def step(self) -> bool:
@@ -381,18 +381,38 @@ class Machine:
                     case InstType.jmp:
                         self.rip = operand
                     case InstType.push:
+                        assert op_size is None or op_size == OperandSize.qword, f'{op_size} is not supported'
                         match operand:
                             case RegisterOp():
-                                self.push_onto_stack(self.get_register(operand.name))
+                                self.push_onto_stack(self.get_register(operand.name), 8)
+                            case int():
+                                self.push_onto_stack(operand, 8)
+                            case MemoryOp():
+                                addr = operand.displacement
+                                if operand.base is not None:
+                                    addr += self.get_register(operand.base)
+                                if operand.index is not None:
+                                    addr += self.get_register(operand.index) * operand.scale
+                                for i in range(8):
+                                    self.push_onto_stack(self.memory[addr+8-i-1], 1)
                             case _:
                                 raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
                         self.rip += 1
                     case InstType.pop:
-                        assert operand.name in R64
-                        value = self.pop_from_stack()
+                        assert op_size is None or op_size == OperandSize.qword, f'{op_size} is not supported'
                         match operand:
                             case RegisterOp():
+                                assert operand.name in R64
+                                value = self.pop_from_stack(8)
                                 self.set_register(operand.name, value, clear_upper_bits=False)
+                            case MemoryOp():
+                                addr = operand.displacement
+                                if operand.base is not None:
+                                    addr += self.get_register(operand.base)
+                                if operand.index is not None:
+                                    addr += self.get_register(operand.index) * operand.scale
+                                for i in range(8):
+                                    self.write_memory(addr+i, self.pop_from_stack(1), OperandSize.byte)
                             case _:
                                 raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.rip += 1

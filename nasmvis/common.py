@@ -147,6 +147,7 @@ register_names = set(name for r in Registers for name in (r.r64, r.r32, r.r16, r
 
 class OperandSize(StrEnum):
     byte = 'byte'
+    qword = 'qword'
 
 @dataclass
 class Operand:
