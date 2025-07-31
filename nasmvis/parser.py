@@ -100,7 +100,7 @@ def parse_op_size(lexer: Lexer) -> OperandSize | None:
 
 # TODO: we can only have 2 operand at max, remove list
 # parse operands, don't consume newline
-def parse_operands(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> tuple[OperandSize | None, list[Operand]]:
+def parse_operands(lexer: Lexer, line: int, labels: dict[str, int], data_labels: dict[str, int], equ_labels: dict[str, str]) -> tuple[OperandSize | None, list[Operand]]:
     if lexer.peek().type == TokenType.NewLine:
         # no operands
         return None, []
@@ -125,6 +125,8 @@ def parse_operands(lexer: Lexer, line: int, data_labels: dict[str, int], equ_lab
         elif token.type == TokenType.Identifier:
             if token.value in equ_labels:
                 operand = int(equ_labels[token.value])
+            elif token.value in labels:
+                operand = int(labels[token.value])
             else:
                 operand = token.value
         elif token.type == TokenType.OpeningSquareBracket:
@@ -146,12 +148,14 @@ def parse_operands(lexer: Lexer, line: int, data_labels: dict[str, int], equ_lab
     return operand_size, operands
 
 
-def parse_inst(inst_type: InstType, lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, inst_type, *parse_operands(lexer, line, data_labels, equ_labels))
+def parse_inst(inst_type: InstType, lexer: Lexer, line: int, labels: dict[str, int], data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, inst_type, *parse_operands(lexer, line, labels, data_labels, equ_labels))
 
 
-def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int], dict[str, int], int, dict[str, str], set[int]]:
+def parse_labels(code: str, debug: bool) -> tuple[dict[str, int], bytearray, dict[str, int], dict[str, int], int, dict[str, str], set[int]]:
     lexer = Lexer(code, debug)
+    labels: dict[str, int] = {}
+    inst_count: int = 0
     data: bytearray = bytearray()
     data_labels: dict[str, int] = {}
     bss: dict[str, int] = {} # key = name, value = offset
@@ -166,6 +170,11 @@ def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int
             break
 
         match token.type:
+            case TokenType.Keyword:
+                if token.value in InstType:
+                    inst_count += 1
+                while lexer.next().type != TokenType.NewLine:
+                    line += 1
             case TokenType.Identifier:
                 label = token.value
                 token = lexer.next()
@@ -200,6 +209,8 @@ def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int
                             bss[label] = bss_size
                             bss_size += size
                         case _:
+                            if token.type == TokenType.Colon:
+                                labels[label] = inst_count
                             # current line is not data, skip it
                             while lexer.next().type != TokenType.NewLine:
                                 line += 1
@@ -212,16 +223,14 @@ def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int
                 while lexer.next().type != TokenType.NewLine:
                     line += 1
 
-    return data, data_labels, bss, bss_size, equ_labels, parsed_lines
+    return labels, data, data_labels, bss, bss_size, equ_labels, parsed_lines
 
 
 def parse_instructions(code: str, debug: bool = False) -> ParserResult:
     lexer = Lexer(code, debug)
     line = 0
     inst: list[Inst | None] = []
-    labels: dict[str, int] = {}
-    jmp_insts: list[tuple[Inst, str]] = cast(list[tuple[Inst, str]], [])
-    data, data_labels, bss, bss_size, equ_labels, parsed_lines = parse_data_and_bss(code, debug)
+    labels, data, data_labels, bss, bss_size, equ_labels, parsed_lines = parse_labels(code, debug)
     for label, offset in bss.items():
         data_labels[label] = len(data) + offset
     start_addr: int | None = None
@@ -254,13 +263,8 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                     else:
                         raise ParserError(f'{line}: Unknown directive {token}')
                 elif token.value in InstType:
-                        # TODO: add support for hex numbers
-                    if token.value in jump_inst:
-                        jmp_inst = parse_inst(InstType(token.value), lexer, line, data_labels, equ_labels)
-                        jmp_insts.append((jmp_inst, str(jmp_inst.operands[0])))
-                        inst.append(jmp_inst)
-                    else:
-                        inst.append(parse_inst(InstType(token.value), lexer, line, data_labels, equ_labels))
+                    # TODO: add support for hex numbers
+                    inst.append(parse_inst(InstType(token.value), lexer, line, labels, data_labels, equ_labels))
                 else:
                     raise NotImplementedError(f'Keyword {token.value} is not implemented')
             case TokenType.Identifier:
@@ -271,7 +275,6 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                 if lexer.peek().type == TokenType.Colon:
                     lexer.expect(TokenType.Colon)
 
-                labels[label] = len(inst)
                 if start_addr is None and label == ENTRYPOINT:
                     start_addr = len(inst)
             case _:
@@ -283,11 +286,6 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
 
         if debug and inst:
             print(inst[-1])
-
-    for jmp_inst, jmp_label in jmp_insts:
-        if jmp_label not in labels:
-            raise ParserError(f'Label {jmp_label} is not defined')
-        jmp_inst.operands = [labels[jmp_label]]
 
     if start_addr is None:
         start_addr = 0
