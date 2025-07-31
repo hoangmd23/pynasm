@@ -5,7 +5,7 @@ from nasmvis.common import Operand, RegisterOp, MemoryOp, register_names, InstTy
 from nasmvis.lexer import Lexer, TokenType
 
 type ParserResult = tuple[int | None, list[Inst | None], bytearray, dict[str, int], int]
-ENTRYPOINT = 'main'
+ENTRYPOINT = '_start'
 
 
 class ParserError(Exception):
