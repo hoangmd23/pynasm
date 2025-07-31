@@ -1,10 +1,8 @@
 from dataclasses import dataclass, field
 from typing import cast
 
-
-from nasmvis.common import Register, Operand, RegisterOp, MemoryOp, register_names, InstType, OperandSize
+from nasmvis.common import Operand, RegisterOp, MemoryOp, register_names, InstType, OperandSize, Directive, jump_inst
 from nasmvis.lexer import Lexer, TokenType
-
 
 type ParserResult = tuple[int | None, list[Inst | None], bytearray, dict[str, int], int]
 ENTRYPOINT = 'main'
@@ -247,49 +245,23 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                 line += 1
                 continue
             case TokenType.Keyword:
-                match token.value:
-                    case 'section':
+                if token.value in Directive:
+                    if token.value == 'section':
                         lexer.expect(TokenType.Keyword)
-                    case 'global':
+                    elif token.value == 'global':
                         lexer.expect(TokenType.Identifier)
-                    case 'mov':
+                    else:
+                        raise ParserError(f'{line}: Unknown directive {token}')
+                elif token.value in InstType:
                         # TODO: add support for hex numbers
-                        inst.append(parse_inst(InstType.mov, lexer, line, data_labels, equ_labels))
-                    case 'movzx':
-                        inst.append(parse_inst(InstType.movzx, lexer, line, data_labels, equ_labels))
-                    case 'movsx':
-                        inst.append(parse_inst(InstType.movsx, lexer, line, data_labels, equ_labels))
-                    case 'add':
-                        inst.append(parse_inst(InstType.add, lexer, line, data_labels, equ_labels))
-                    case 'sub':
-                        inst.append(parse_inst(InstType.sub, lexer, line, data_labels, equ_labels))
-                    case 'xor':
-                        inst.append(parse_inst(InstType.xor, lexer, line, data_labels, equ_labels))
-                    case 'cmp':
-                        inst.append(parse_inst(InstType.cmp, lexer, line, data_labels, equ_labels))
-                    case 'inc':
-                        inst.append(parse_inst(InstType.inc, lexer, line, data_labels, equ_labels))
-                    case 'dec':
-                        inst.append(parse_inst(InstType.dec, lexer, line, data_labels, equ_labels))
-                    case 'jne' | 'jbe' | 'jae' | 'jmp' | 'jnz' | 'jge' | 'je':
+                    if token.value in jump_inst:
                         jmp_inst = parse_inst(InstType(token.value), lexer, line, data_labels, equ_labels)
                         jmp_insts.append((jmp_inst, str(jmp_inst.operands[0])))
                         inst.append(jmp_inst)
-                    case 'push':
-                         # TODO: add support for pushing .data
-                        inst.append(parse_inst(InstType.push, lexer, line, data_labels, equ_labels))
-                    case 'pop':
-                        inst.append(parse_inst(InstType.pop, lexer, line, data_labels, equ_labels))
-                    case 'call':
-                        jmp_inst = parse_inst(InstType.call, lexer, line, data_labels, equ_labels)
-                        jmp_insts.append((jmp_inst, str(jmp_inst.operands[0])))
-                        inst.append(jmp_inst)
-                    case 'ret':
-                        inst.append(Inst(line, InstType.ret))
-                    case 'exit':
-                        inst.append(Inst(line, InstType.exit))
-                    case _:
-                        raise NotImplementedError(f'Keyword {token.value} is not implemented')
+                    else:
+                        inst.append(parse_inst(InstType(token.value), lexer, line, data_labels, equ_labels))
+                else:
+                    raise NotImplementedError(f'Keyword {token.value} is not implemented')
             case TokenType.Identifier:
                 # parse label
                 label = token.value
