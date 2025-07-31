@@ -146,13 +146,9 @@ def parse_operands(lexer: Lexer, line: int, data_labels: dict[str, int], equ_lab
 
     return operand_size, operands
 
+
 def parse_inst(inst_type: InstType, lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
     return Inst(line, inst_type, *parse_operands(lexer, line, data_labels, equ_labels))
-
-
-def parse_jmp(lexer: Lexer, line: int, inst_type: InstType) -> tuple[Inst, str]:
-    jmp_label = lexer.expect(TokenType.Identifier).value
-    return Inst(line, inst_type), jmp_label
 
 
 def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int], dict[str, int], int, dict[str, str], set[int]]:
@@ -276,8 +272,8 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                     case 'dec':
                         inst.append(parse_inst(InstType.dec, lexer, line, data_labels, equ_labels))
                     case 'jne' | 'jbe' | 'jae' | 'jmp' | 'jnz' | 'jge' | 'je':
-                        jmp_inst, jmp_label = parse_jmp(lexer, line, InstType(token.value))
-                        jmp_insts.append((jmp_inst, jmp_label))
+                        jmp_inst = parse_inst(InstType(token.value), lexer, line, data_labels, equ_labels)
+                        jmp_insts.append((jmp_inst, str(jmp_inst.operands[0])))
                         inst.append(jmp_inst)
                     case 'push':
                          # TODO: add support for pushing .data
@@ -285,8 +281,8 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                     case 'pop':
                         inst.append(parse_inst(InstType.pop, lexer, line, data_labels, equ_labels))
                     case 'call':
-                        jmp_inst, jmp_label = parse_jmp(lexer, line, InstType.call)
-                        jmp_insts.append((jmp_inst, jmp_label))
+                        jmp_inst = parse_inst(InstType.call, lexer, line, data_labels, equ_labels)
+                        jmp_insts.append((jmp_inst, str(jmp_inst.operands[0])))
                         inst.append(jmp_inst)
                     case 'ret':
                         inst.append(Inst(line, InstType.ret))
