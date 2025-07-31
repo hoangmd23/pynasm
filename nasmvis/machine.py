@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize
+from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp
 from nasmvis.parser import Inst, InstType
 
 
@@ -49,8 +49,8 @@ def get_sign_bit(value: int, reg_width: int):
     return value >> (reg_width - 1) & 1
 
 
-def get_reg_max_value(reg: RegisterType) -> int:
-    match reg.name:
+def get_reg_max_value(reg: RegisterOp) -> int:
+    match reg.value:
         case x if x in R64:
             return R64_MAX_VALUE
         case x if x in R32:
@@ -63,8 +63,8 @@ def get_reg_max_value(reg: RegisterType) -> int:
             raise MachineException(f'Unknown register: {reg}')
 
 
-def get_reg_width(reg: RegisterType) -> int:
-    match reg.name:
+def get_reg_width(reg: RegisterOp) -> int:
+    match reg.value:
         case x if x in R64:
             return R64_WIDTH
         case x if x in R32:
@@ -287,15 +287,15 @@ class Machine:
                 self.rip += 1
                 if op == InstType.inc or op == InstType.dec:
                     dest = ops[0]
-                    src = 1
+                    src = NumberOp(1)
                 else:
                     dest, src = ops[0], ops[1]
 
                 match (dest, src):
                     # TODO: can we process dest and src separately?
-                    case (RegisterOp(), int()):
-                        src_value = src
-                        dest_value = self.get_register(dest.name)
+                    case (RegisterOp(), NumberOp()):
+                        src_value = src.value
+                        dest_value = self.get_register(dest.value)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
 
@@ -310,18 +310,13 @@ class Machine:
                             else:
                                 src_value %= reg_max_value
                     case (RegisterOp(), RegisterOp()):
-                        src_value = self.get_register(src.name)
-                        dest_value = self.get_register(dest.name)
-                        reg_max_value = get_reg_max_value(dest)
-                        reg_width = get_reg_width(dest)
-                    case (RegisterOp(), str()):
-                        src_value = self.data_labels[src]
-                        dest_value = self.get_register(dest.name)
+                        src_value = self.get_register(src.value)
+                        dest_value = self.get_register(dest.value)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (RegisterOp(), MemoryOp()):
                         if op_size is None:
-                             op_size = get_reg_op_size(dest.name)
+                             op_size = get_reg_op_size(dest.value)
                         assert op_size in [OperandSize.byte, OperandSize.word], f'{op_size} is not implemented'
                         addr = src.displacement
                         if src.base is not None:
@@ -330,7 +325,7 @@ class Machine:
                             addr += self.get_register(src.index)*src.scale
                         # TODO: need to get multiple bytes depending on register width
                         src_value = self.read_memory(addr, op_size)
-                        dest_value = self.get_register(dest.name)
+                        dest_value = self.get_register(dest.value)
                         reg_max_value = get_reg_max_value(dest)
                         reg_width = get_reg_width(dest)
                     case (MemoryOp(), RegisterOp()):
@@ -342,20 +337,20 @@ class Machine:
                         if dest.index is not None:
                             addr += self.get_register(dest.index) * dest.scale
 
-                        src_value = self.get_register(src.name)
+                        src_value = self.get_register(src.value)
                         # TODO: need to get multiple bytes depending on register width
                         dest_value = self.memory[addr]
                         reg_max_value = get_reg_max_value(src)
                         reg_width = get_reg_width(src)
                         assert op_size == OperandSize.byte, "Not implemented"
-                    case(MemoryOp(), int()):
+                    case(MemoryOp(), NumberOp()):
                         addr = dest.displacement
                         if dest.base is not None:
                             addr += self.get_register(dest.base)
                         if dest.index is not None:
                             addr += self.get_register(dest.index) * dest.scale
 
-                        src_value = src
+                        src_value = src.value
                         # TODO: need to get multiple bytes depending on register width
                         dest_value = self.memory[addr]
                         assert op_size == OperandSize.byte, f"{op_size} not implemented"
@@ -366,7 +361,7 @@ class Machine:
                 # TODO: assert dest, src and operand size have same size
                 res, clear_upper_bits = self.compute_binop(dest_value, src_value, op, reg_max_value, reg_width)
                 if isinstance(dest, RegisterOp):
-                    self.set_register(dest.name, res, clear_upper_bits)
+                    self.set_register(dest.value, res, clear_upper_bits)
                 else:
                     # TODO: addr might not be assigned
                     self.write_memory(addr, res, op_size)
@@ -375,43 +370,43 @@ class Machine:
                 match op:
                     case InstType.jne:
                         if not self.flags[Flags.ZF]:
-                            self.rip = operand
+                            self.rip = operand.value
                         else:
                             self.rip += 1
                     case InstType.je:
                         if self.flags[Flags.ZF]:
-                            self.rip = operand
+                            self.rip = operand.value
                         else:
                             self.rip += 1
                     case InstType.jbe:
                         if self.flags[Flags.CF] or self.flags[Flags.ZF]:
-                            self.rip = operand
+                            self.rip = operand.value
                         else:
                             self.rip += 1
                     case InstType.jae:
                         if not self.flags[Flags.CF]:
-                            self.rip = operand
+                            self.rip = operand.value
                         else:
                             self.rip += 1
                     case InstType.jnz:
                         if not self.flags[Flags.ZF]:
-                            self.rip = operand
+                            self.rip = operand.value
                         else:
                             self.rip += 1
                     case InstType.jge:
                         if self.flags[Flags.SF] == self.flags[Flags.OF]:
-                            self.rip = operand
+                            self.rip = operand.value
                         else:
                             self.rip += 1
                     case InstType.jmp:
-                        self.rip = operand
+                        self.rip = operand.value
                     case InstType.push:
                         assert op_size is None or op_size == OperandSize.qword, f'{op_size} is not supported'
                         match operand:
                             case RegisterOp():
-                                self.push_onto_stack(self.get_register(operand.name), 8)
-                            case int():
-                                self.push_onto_stack(operand, 8)
+                                self.push_onto_stack(self.get_register(operand.value), 8)
+                            case NumberOp():
+                                self.push_onto_stack(operand.value, 8)
                             case MemoryOp():
                                 addr = operand.displacement
                                 if operand.base is not None:
@@ -427,9 +422,9 @@ class Machine:
                         assert op_size is None or op_size == OperandSize.qword, f'{op_size} is not supported'
                         match operand:
                             case RegisterOp():
-                                assert operand.name in R64
+                                assert operand.value in R64
                                 value = self.pop_from_stack(8)
-                                self.set_register(operand.name, value, clear_upper_bits=False)
+                                self.set_register(operand.value, value, clear_upper_bits=False)
                             case MemoryOp():
                                 addr = operand.displacement
                                 if operand.base is not None:
@@ -443,7 +438,7 @@ class Machine:
                         self.rip += 1
                     case InstType.call:
                         self.push_onto_stack(self.rip + 1, 8)
-                        self.rip = operand
+                        self.rip = operand.value
                     case _:
                         raise NotImplementedError(f'{line}: Unary operator {op} is not implemented')
             case Inst(_, InstType.ret, _, _):

@@ -159,19 +159,20 @@ class OperandSize(StrEnum):
     dword = 'dword'
     qword = 'qword'
 
+
 @dataclass
 class Operand:
     pass
 
 
 @dataclass
-class LiteralOp(Operand):
+class NumberOp(Operand):
     value: int
 
 
 @dataclass
 class RegisterOp(Operand):
-    name: str
+    value: str
 
 
 @dataclass
@@ -179,4 +180,4 @@ class MemoryOp(Operand):
     base: str | None = None
     index: str | None = None
     scale: int = 0
-    displacement: int | str = 0
+    displacement: int = 0

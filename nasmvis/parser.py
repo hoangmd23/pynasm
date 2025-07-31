@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import cast
 
-from nasmvis.common import Operand, RegisterOp, MemoryOp, register_names, InstType, OperandSize, Directive, jump_inst
+from nasmvis.common import Operand, RegisterOp, MemoryOp, register_names, InstType, OperandSize, Directive, jump_inst, \
+    NumberOp
 from nasmvis.lexer import Lexer, TokenType
 
 type ParserResult = tuple[int | None, list[Inst | None], bytearray, dict[str, int], int]
@@ -21,7 +21,7 @@ class Inst:
 
 
 # does not expect opening bracket, but consumes closing bracket
-def parse_memory_op(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> MemoryOp:
+def parse_memory_op(lexer: Lexer, line: int, labels: dict[str, int], data_labels: dict[str, int], equ_labels: dict[str, str]) -> MemoryOp:
     memory = MemoryOp()
     while True:
         token = lexer.next()
@@ -75,19 +75,9 @@ def parse_memory_op(lexer: Lexer, line: int, data_labels: dict[str, int], equ_la
                 raise ParserError(f'{line}: invalid effective address')
             break
 
-    if memory.scale in equ_labels:
-        memory.scale = int(equ_labels[memory.scale])
-    elif memory.scale in data_labels:
-        memory.scale = int(data_labels[memory.scale])
-    else:
-        memory.scale = int(memory.scale)
+    memory.scale = resolve_label(memory.scale, labels, data_labels, equ_labels)
+    memory.displacement = resolve_label(memory.displacement, labels, data_labels, equ_labels)
 
-    if memory.displacement in equ_labels:
-        memory.displacement = int(equ_labels[memory.displacement])
-    elif memory.displacement in data_labels:
-        memory.displacement = int(data_labels[memory.displacement])
-    else:
-        memory.displacement = int(memory.displacement)
     return memory
 
 
@@ -96,6 +86,24 @@ def parse_op_size(lexer: Lexer) -> OperandSize | None:
     if lexer.peek().value in OperandSize:
         operand_size = OperandSize(lexer.next().value)
     return operand_size
+
+
+def resolve_label(label: str, labels: dict[str, int], data_labels: dict[str, int], equ_labels: dict[str, str]) -> int:
+    try:
+        return int(label)
+    except ValueError:
+        res = label
+        if res in equ_labels:
+            res = equ_labels[res]
+
+        if res in data_labels:
+            res = data_labels[res]
+        elif res in labels:
+            res = labels[res]
+        else:
+            raise ParserError(f'Could not resolve label: {label}')
+
+        return int(res)
 
 
 # TODO: we can only have 2 operand at max, remove list
@@ -121,16 +129,11 @@ def parse_operands(lexer: Lexer, line: int, labels: dict[str, int], data_labels:
         if token.type == TokenType.Keyword and token.value in register_names:
             operand = RegisterOp(token.value)
         elif token.type == TokenType.Number:
-            operand = int(token.value)
+            operand = NumberOp(int(token.value))
         elif token.type == TokenType.Identifier:
-            if token.value in equ_labels:
-                operand = int(equ_labels[token.value])
-            elif token.value in labels:
-                operand = int(labels[token.value])
-            else:
-                operand = token.value
+            operand = NumberOp(resolve_label(token.value, labels, data_labels, equ_labels))
         elif token.type == TokenType.OpeningSquareBracket:
-            operand = parse_memory_op(lexer, line, data_labels, equ_labels)
+            operand = parse_memory_op(lexer, line, labels, data_labels, equ_labels)
         else:
             raise ParserError(f'{line}: Invalid source operand')
 
