@@ -2,6 +2,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
+class Directive(StrEnum):
+    section = 'section'
+    global_ = 'global'
+
+
 class InstType(StrEnum):
     mov = 'mov'
     movzx = 'movzx'
@@ -24,6 +29,9 @@ class InstType(StrEnum):
     exit = 'exit'
     push = 'push'
     pop = 'pop'
+
+
+jump_inst = ['jne', 'jbe', 'jae', 'jmp', 'jnz', 'jge', 'je', 'call']
 
 
 class R64(StrEnum):
