@@ -69,6 +69,7 @@ def parse_memory_op(lexer: Lexer, line: int, data_labels: dict[str, int], equ_la
                     # displacement
                     memory.displacement = token.value
         token = lexer.next()
+        # TODO: add support for negative displacement
         if token.value != '+':
             if token.type != TokenType.ClosingSquareBracket:
                 raise ParserError(f'{line}: invalid effective address')
