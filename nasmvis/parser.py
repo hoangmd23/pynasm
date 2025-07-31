@@ -100,151 +100,59 @@ def parse_op_size(lexer: Lexer) -> OperandSize | None:
 
 
 # TODO: we can only have 2 operand at max, remove list
-def parse_binop(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> tuple[OperandSize | None, list[Operand, Operand]]:
-    # parse operand size if any
-    operand_size: OperandSize | None = parse_op_size(lexer)
+# parse operands, don't consume newline
+def parse_operands(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> tuple[OperandSize | None, list[Operand]]:
+    if lexer.peek().type == TokenType.NewLine:
+        # no operands
+        return None, []
 
-    # parse destination
-    dest = lexer.expect(TokenType.Keyword, TokenType.OpeningSquareBracket)
-    if dest.type == TokenType.Keyword and dest.value in register_names:
-        dest_op = RegisterOp(dest.value)
-    elif dest.type == TokenType.OpeningSquareBracket:
-        dest_op = parse_memory_op(lexer, line, data_labels, equ_labels)
-    else:
-        raise ParserError(f'{line}: Invalid destination operand')
+    operand_size: OperandSize | None = None
+    operands: list[Operand] = []
 
-    # parse comma
-    lexer.expect(TokenType.Comma)
+    # parse operands
+    while True:
+        # if multiple operand sizes are specified, use the last one
+        if operand_size is None:
+            operand_size = parse_op_size(lexer)
+        elif parse_op_size(lexer) is not None:
+            raise ParserError(f'{line}: Size of an operand is specified two times')
 
-    # parse source
-    if operand_size is None:
-        operand_size = parse_op_size(lexer)
-    elif parse_op_size(lexer) is not None:
-        raise ParserError(f'{line}: Size of an operand is specified two times')
-
-    src = lexer.expect(TokenType.Keyword, TokenType.Number, TokenType.Identifier, TokenType.OpeningSquareBracket)
-
-    if src.type == TokenType.Keyword and src.value in register_names:
-        src_op = RegisterOp(src.value)
-    elif src.type == TokenType.Number:
-        src_op = int(src.value)
-    elif src.type == TokenType.Identifier:
-        if src.value in equ_labels:
-            src_op = int(equ_labels[src.value])
+        # parse operand
+        token = lexer.expect(TokenType.Keyword, TokenType.Number, TokenType.Identifier, TokenType.OpeningSquareBracket)
+        if token.type == TokenType.Keyword and token.value in register_names:
+            operand = RegisterOp(token.value)
+        elif token.type == TokenType.Number:
+            operand = int(token.value)
+        elif token.type == TokenType.Identifier:
+            if token.value in equ_labels:
+                operand = int(equ_labels[token.value])
+            else:
+                operand = token.value
+        elif token.type == TokenType.OpeningSquareBracket:
+            operand = parse_memory_op(lexer, line, data_labels, equ_labels)
         else:
-            src_op = src.value
-    elif src.type == TokenType.OpeningSquareBracket:
-        src_op = parse_memory_op(lexer, line, data_labels, equ_labels)
-    else:
-        raise ParserError(f'{line}: Invalid source operand')
+            raise ParserError(f'{line}: Invalid source operand')
 
-    return operand_size, [dest_op, src_op]
+        operands.append(operand)
 
+        # check if there are more operands
+        token = lexer.peek()
+        if token.type == TokenType.NewLine:
+            break
+        elif token.type == TokenType.Comma:
+            lexer.expect(TokenType.Comma)
+        else:
+            raise ParserError(f'{line}: Expected comma or newline, but got {token}')
 
-def parse_mov(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, InstType.mov, *parse_binop(lexer, line, data_labels, equ_labels))
+    return operand_size, operands
 
-
-def parse_movzx(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, InstType.movzx, *parse_binop(lexer, line, data_labels, equ_labels))
-
-
-def parse_movsx(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, InstType.movsx, *parse_binop(lexer, line, data_labels, equ_labels))
-
-
-def parse_add(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, InstType.add, *parse_binop(lexer, line, data_labels, equ_labels))
-
-
-def parse_sub(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, InstType.sub, *parse_binop(lexer, line, data_labels, equ_labels))
-
-
-def parse_xor(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, InstType.xor, *parse_binop(lexer, line, data_labels, equ_labels))
-
-
-def parse_cmp(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    return Inst(line, InstType.cmp, *parse_binop(lexer, line, data_labels, equ_labels))
-
-
-def parse_dec(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    operand_size: OperandSize | None = parse_op_size(lexer)
-
-    dest = lexer.expect(TokenType.Keyword, TokenType.OpeningSquareBracket)
-    if dest in equ_labels:
-        dest_op = equ_labels[dest.value]
-    elif dest.type == TokenType.Keyword and dest.value in register_names:
-        dest_op = RegisterOp(dest.value)
-    elif dest.type == TokenType.OpeningSquareBracket:
-        dest_op = parse_memory_op(lexer, line, data_labels, equ_labels)
-    else:
-        raise ParserError(f'{line}: Invalid destination operand')
-
-    return Inst(line, InstType.dec, operand_size, [dest_op])
-
-
-def parse_inc(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    operand_size: OperandSize | None = parse_op_size(lexer)
-
-    dest = lexer.expect(TokenType.Keyword, TokenType.OpeningSquareBracket)
-    if dest in equ_labels:
-        dest_op = equ_labels[dest.value]
-    elif dest.type == TokenType.Keyword and dest.value in register_names:
-        dest_op = RegisterOp(dest.value)
-    elif dest.type == TokenType.OpeningSquareBracket:
-        dest_op = parse_memory_op(lexer, line, data_labels, equ_labels)
-    else:
-        raise ParserError(f'{line}: Invalid destination operand')
-
-    return Inst(line, InstType.inc, operand_size, [dest_op])
+def parse_inst(inst_type: InstType, lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
+    return Inst(line, inst_type, *parse_operands(lexer, line, data_labels, equ_labels))
 
 
 def parse_jmp(lexer: Lexer, line: int, inst_type: InstType) -> tuple[Inst, str]:
     jmp_label = lexer.expect(TokenType.Identifier).value
     return Inst(line, inst_type), jmp_label
-
-
-def parse_push(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    operand_size: OperandSize | None = parse_op_size(lexer)
-    token = lexer.expect(TokenType.Keyword, TokenType.Identifier, TokenType.Number, TokenType.OpeningSquareBracket)
-    # TODO: add support for pushing .data
-    if token.type == TokenType.Keyword and token.value in register_names:
-        op = RegisterOp(token.value)
-    elif token.type == TokenType.Number:
-        op = int(token.value)
-    elif token.type == TokenType.Identifier:
-        if token.value in equ_labels:
-            op = int(equ_labels[token.value])
-        else:
-            op = token.value
-    elif token.type == TokenType.OpeningSquareBracket:
-        op = parse_memory_op(lexer, line, data_labels, equ_labels)
-    else:
-        raise ParserError(f'{line}: Invalid push operand {token}')
-
-    return Inst(line, InstType.push, operand_size, [op])
-
-
-def parse_pop(lexer: Lexer, line: int, data_labels: dict[str, int], equ_labels: dict[str, str]) -> Inst:
-    operand_size: OperandSize | None = parse_op_size(lexer)
-    token = lexer.expect(TokenType.Keyword, TokenType.Identifier, TokenType.Number, TokenType.OpeningSquareBracket)
-    if token.type == TokenType.Keyword and token.value in register_names:
-        op = RegisterOp(token.value)
-    elif token.type == TokenType.Number:
-        op = int(token.value)
-    elif token.type == TokenType.Identifier:
-        if token.value in equ_labels:
-            op = int(equ_labels[token.value])
-        else:
-            op = token.value
-    elif token.type == TokenType.OpeningSquareBracket:
-        op = parse_memory_op(lexer, line, data_labels, equ_labels)
-    else:
-        raise ParserError(f'{line}: Invalid pop operand {token}')
-
-    return Inst(line, InstType.pop, operand_size, [op])
 
 
 def parse_data_and_bss(code: str, debug: bool) -> tuple[bytearray, dict[str, int], dict[str, int], int, dict[str, str], set[int]]:
@@ -350,31 +258,32 @@ def parse_instructions(code: str, debug: bool = False) -> ParserResult:
                         lexer.expect(TokenType.Identifier)
                     case 'mov':
                         # TODO: add support for hex numbers
-                        inst.append(parse_mov(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.mov, lexer, line, data_labels, equ_labels))
                     case 'movzx':
-                        inst.append(parse_movzx(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.movzx, lexer, line, data_labels, equ_labels))
                     case 'movsx':
-                        inst.append(parse_movsx(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.movsx, lexer, line, data_labels, equ_labels))
                     case 'add':
-                        inst.append(parse_add(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.add, lexer, line, data_labels, equ_labels))
                     case 'sub':
-                        inst.append(parse_sub(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.sub, lexer, line, data_labels, equ_labels))
                     case 'xor':
-                        inst.append(parse_xor(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.xor, lexer, line, data_labels, equ_labels))
                     case 'cmp':
-                        inst.append(parse_cmp(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.cmp, lexer, line, data_labels, equ_labels))
                     case 'inc':
-                        inst.append(parse_inc(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.inc, lexer, line, data_labels, equ_labels))
                     case 'dec':
-                        inst.append(parse_dec(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.dec, lexer, line, data_labels, equ_labels))
                     case 'jne' | 'jbe' | 'jae' | 'jmp' | 'jnz' | 'jge' | 'je':
                         jmp_inst, jmp_label = parse_jmp(lexer, line, InstType(token.value))
                         jmp_insts.append((jmp_inst, jmp_label))
                         inst.append(jmp_inst)
                     case 'push':
-                        inst.append(parse_push(lexer, line, data_labels, equ_labels))
+                         # TODO: add support for pushing .data
+                        inst.append(parse_inst(InstType.push, lexer, line, data_labels, equ_labels))
                     case 'pop':
-                        inst.append(parse_pop(lexer, line, data_labels, equ_labels))
+                        inst.append(parse_inst(InstType.pop, lexer, line, data_labels, equ_labels))
                     case 'call':
                         jmp_inst, jmp_label = parse_jmp(lexer, line, InstType.call)
                         jmp_insts.append((jmp_inst, jmp_label))
