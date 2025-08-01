@@ -1,6 +1,7 @@
 from enum import StrEnum
 
-from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp
+from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp, \
+    Operand
 from nasmvis.parser import Inst, InstType
 
 
@@ -49,34 +50,6 @@ def get_sign_bit(value: int, reg_width: int):
     return value >> (reg_width - 1) & 1
 
 
-def get_reg_max_value(reg: RegisterOp) -> int:
-    match reg.value:
-        case x if x in R64:
-            return R64_MAX_VALUE
-        case x if x in R32:
-            return R32_MAX_VALUE
-        case x if x in R16:
-            return R16_MAX_VALUE
-        case x if x in RH or x in RL:
-            return R8_MAX_VALUE
-        case _:
-            raise MachineException(f'Unknown register: {reg}')
-
-
-def get_reg_width(reg: RegisterOp) -> int:
-    match reg.value:
-        case x if x in R64:
-            return R64_WIDTH
-        case x if x in R32:
-            return R32_WIDTH
-        case x if x in R16:
-            return R16_WIDTH
-        case x if x in RH or x in RL:
-            return R8_WIDTH
-        case _:
-            raise MachineException(f'Unknown register: {reg}')
-
-
 def get_reg_by_name(name: str) -> RegisterType:
     if name in R64:
         reg = R64(name)
@@ -107,6 +80,55 @@ def get_reg_op_size(name: str) -> OperandSize:
     else:
         raise MachineException(f'Unknown register: {name}')
     return op_size
+
+
+def get_op_bit_count(op_size: OperandSize):
+    match op_size:
+        case OperandSize.byte:
+            return R8_WIDTH
+        case OperandSize.word:
+            return R16_WIDTH
+        case OperandSize.dword:
+            return R32_WIDTH
+        case OperandSize.qword:
+            return R64_WIDTH
+        case _:
+            assert False
+
+
+def get_op_max_value(op: OperandSize):
+    match op:
+        case OperandSize.byte:
+            return R8_MAX_VALUE
+        case OperandSize.word:
+            return R16_MAX_VALUE
+        case OperandSize.dword:
+            return R32_MAX_VALUE
+        case OperandSize.qword:
+            return R64_MAX_VALUE
+        case _:
+            assert False
+
+
+def get_inst_operands_sizes(dest: Operand, src: Operand, op_size: OperandSize | None) -> tuple[OperandSize, OperandSize]:
+    if isinstance(dest, RegisterOp):
+        dest_op_size = get_reg_op_size(dest.value)
+    else:
+        dest_op_size = op_size
+
+    if isinstance(src, RegisterOp):
+        src_op_size = get_reg_op_size(src.value)
+    else:
+        src_op_size = op_size
+
+    assert dest_op_size is not None or src_op_size is not None
+
+    if dest_op_size is None:
+        dest_op_size = src_op_size
+    if src_op_size is None:
+        src_op_size = dest_op_size
+
+    return dest_op_size, src_op_size
 
 
 class Machine:
@@ -183,32 +205,28 @@ class Machine:
             case _:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for get_register')
 
-    def read_memory(self, addr: int, size: OperandSize) -> int:
-        match size:
-            case OperandSize.byte:
-                res = self.memory[addr]
-            case OperandSize.word:
-                res = self.memory[addr] + self.memory[addr+1] * 256
-            case _:
-                raise NotImplementedError(f'{size} is not implemented')
+    def read_memory(self, addr: int, op_size: OperandSize) -> int:
+        res = 0
+        for i in range(get_op_bit_count(op_size) // 8):
+            res += self.memory[addr+i] * 256**i
         return res
 
     def write_memory(self, addr: int, value: int, op_size: OperandSize):
-        match op_size:
-            case OperandSize.byte:
-                self.memory[addr] = value % R8_MAX_VALUE
-            case _:
-                raise NotImplementedError(f'{op_size} is not implemented')
+        for i in range(get_op_bit_count(op_size) // 8):
+            self.memory[addr + i] = value % 256
+            value //= 256
 
     def read_flag(self, flag: Flags) -> bool:
         return self.flags[flag]
 
-
-    def compute_binop(self, dest: int, src: int, op: InstType, max_value: int, reg_width: int) -> tuple[int, bool]:
+    def compute_binop(self, dest: int, src: int, op: InstType, dest_op_size: OperandSize, src_op_size: OperandSize) -> tuple[int, bool]:
         # TODO: support registers of different width, are flags set differently?
         # some operations on a 32-bit register clear the upper 32 bits of the corresponding 64-bit register
         match op:
             case InstType.add | InstType.inc:
+                assert dest_op_size == src_op_size
+                reg_width = get_op_bit_count(dest_op_size)
+                max_value = get_op_max_value(dest_op_size)
                 res = dest + src
                 res_sign = get_sign_bit(res, reg_width)
                 dest_sign = get_sign_bit(dest, reg_width)
@@ -223,6 +241,9 @@ class Machine:
                 self.flags[Flags.OF] = (True if dest_sign == src_sign and res_sign != dest_sign else False)
                 clear_upper_bits = True
             case InstType.xor:
+                assert dest_op_size == src_op_size
+                reg_width = get_op_bit_count(dest_op_size)
+                max_value = get_op_max_value(dest_op_size)
                 res = dest ^ src
                 self.flags[Flags.ZF] = res % max_value == 0
                 self.flags[Flags.SF] = get_sign_bit(res, reg_width) == 1
@@ -233,6 +254,7 @@ class Machine:
                 res = src
                 clear_upper_bits = True
             case InstType.movsx:
+                reg_width = get_op_bit_count(dest_op_size)
                 # TODO: currently only supports 1 byte source
                 sign = get_sign_bit(src, 8)
                 res = src
@@ -241,6 +263,9 @@ class Machine:
                         res |= 1 << (i + 8)
                 clear_upper_bits = True
             case InstType.cmp | InstType.sub | InstType.dec:
+                assert dest_op_size == src_op_size
+                reg_width = get_op_bit_count(dest_op_size)
+                max_value = get_op_max_value(dest_op_size)
                 res = dest - src
                 res_sign = get_sign_bit(res, reg_width)
                 dest_sign = get_sign_bit(dest, reg_width)
@@ -276,6 +301,36 @@ class Machine:
         self.set_register(R64.rsp, self.get_register(R64.rsp) + size, clear_upper_bits=False)
         return value
 
+    def calc_effective_addr(self, op: MemoryOp) -> int:
+        res = op.displacement
+        if op.base is not None:
+            res += self.get_register(op.base)
+        if op.index is not None:
+            res += self.get_register(op.index) * op.scale
+        return res
+
+    def get_operand_value(self, inst: InstType, op: Operand, op_size: OperandSize) -> int:
+        match op:
+            case RegisterOp(value):
+                res = self.get_register(value)
+            case NumberOp(value):
+                res = value
+                if inst in [InstType.add, InstType.sub, InstType.cmp, InstType.xor]:
+                    # max supported immediate value for add is 32-bit value
+                    if op_size == OperandSize.qword:
+                        res %= R32_MAX_VALUE
+                        # sign extend
+                        if get_sign_bit(res, R32_WIDTH) == 1:
+                            for j in range(R64_WIDTH - 32):
+                                res |= 1 << (j + 32)
+                    else:
+                        res %= get_op_max_value(op_size)
+            case MemoryOp() as mem_op:
+                res = self.read_memory(self.calc_effective_addr(mem_op), op_size)
+            case _:
+                raise NotImplementedError(f'Unknown operand type {op}\n')
+        return res
+
     def step(self) -> bool:
         if not self.running:
             return False
@@ -290,81 +345,15 @@ class Machine:
                     src = NumberOp(1)
                 else:
                     dest, src = ops[0], ops[1]
+                dest_op_size, src_op_size = get_inst_operands_sizes(dest, src, op_size)
+                dest_value = self.get_operand_value(op, dest, dest_op_size)
+                src_value = self.get_operand_value(op, src, src_op_size)
+                res, clear_upper_bits = self.compute_binop(dest_value, src_value, op, dest_op_size, src_op_size)
 
-                match (dest, src):
-                    # TODO: can we process dest and src separately?
-                    case (RegisterOp(), NumberOp()):
-                        src_value = src.value
-                        dest_value = self.get_register(dest.value)
-                        reg_max_value = get_reg_max_value(dest)
-                        reg_width = get_reg_width(dest)
-
-                        if op in [InstType.add, InstType.sub, InstType.cmp, InstType.xor]:
-                            # max supported immediate value for add is 32-bit value
-                            if reg_width == R64_WIDTH:
-                                src_value %= R32_MAX_VALUE
-                                # sign extend
-                                if get_sign_bit(src_value, R32_WIDTH) == 1:
-                                    for i in range(R64_WIDTH - 32):
-                                        src_value |= 1 << (i + 32)
-                            else:
-                                src_value %= reg_max_value
-                    case (RegisterOp(), RegisterOp()):
-                        src_value = self.get_register(src.value)
-                        dest_value = self.get_register(dest.value)
-                        reg_max_value = get_reg_max_value(dest)
-                        reg_width = get_reg_width(dest)
-                    case (RegisterOp(), MemoryOp()):
-                        if op_size is None:
-                             op_size = get_reg_op_size(dest.value)
-                        assert op_size in [OperandSize.byte, OperandSize.word], f'{op_size} is not implemented'
-                        addr = src.displacement
-                        if src.base is not None:
-                            addr += self.get_register(src.base)
-                        if src.index is not None:
-                            addr += self.get_register(src.index)*src.scale
-                        # TODO: need to get multiple bytes depending on register width
-                        src_value = self.read_memory(addr, op_size)
-                        dest_value = self.get_register(dest.value)
-                        reg_max_value = get_reg_max_value(dest)
-                        reg_width = get_reg_width(dest)
-                    case (MemoryOp(), RegisterOp()):
-                        # TODO: set operand size to register size
-                        op_size = OperandSize.byte
-                        addr = dest.displacement
-                        if dest.base is not None:
-                            addr += self.get_register(dest.base)
-                        if dest.index is not None:
-                            addr += self.get_register(dest.index) * dest.scale
-
-                        src_value = self.get_register(src.value)
-                        # TODO: need to get multiple bytes depending on register width
-                        dest_value = self.memory[addr]
-                        reg_max_value = get_reg_max_value(src)
-                        reg_width = get_reg_width(src)
-                        assert op_size == OperandSize.byte, "Not implemented"
-                    case(MemoryOp(), NumberOp()):
-                        addr = dest.displacement
-                        if dest.base is not None:
-                            addr += self.get_register(dest.base)
-                        if dest.index is not None:
-                            addr += self.get_register(dest.index) * dest.scale
-
-                        src_value = src.value
-                        # TODO: need to get multiple bytes depending on register width
-                        dest_value = self.memory[addr]
-                        assert op_size == OperandSize.byte, f"{op_size} not implemented"
-                        reg_width = R8_WIDTH
-                        reg_max_value = R8_MAX_VALUE
-                    case _:
-                        raise NotImplementedError(f'{line}: Binary operator does not support operands {dest}, {src}\nInst: {inst}')
-                # TODO: assert dest, src and operand size have same size
-                res, clear_upper_bits = self.compute_binop(dest_value, src_value, op, reg_max_value, reg_width)
                 if isinstance(dest, RegisterOp):
                     self.set_register(dest.value, res, clear_upper_bits)
                 else:
-                    # TODO: addr might not be assigned
-                    self.write_memory(addr, res, op_size)
+                    self.write_memory(self.calc_effective_addr(dest), res, dest_op_size)
             case Inst(line, op, op_size, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
