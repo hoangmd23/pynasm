@@ -286,20 +286,17 @@ class Machine:
         return res, clear_upper_bits
 
     def push_onto_stack(self, value: int, op_size: OperandSize) -> None:
-        # TODO: we can also push 2 bytes, e.g. ax
         byte_count = get_op_bit_count(op_size) // 8
         self.set_register(R64.rsp, self.get_register(R64.rsp) - byte_count, clear_upper_bits=False)
         for i in range(byte_count):
             self.memory[self.get_register(R64.rsp) + i] = value >> (i * 8) & 0xFF
 
-    def pop_from_stack(self, size: int) -> int:
-        # TODO: we can also pop 2 or 4 bytes
+    def pop_from_stack(self, op_size: OperandSize) -> int:
         if self.get_register(R64.rsp) >= len(self.memory):
             raise MachineException(f'Stack underflow')
-        value = 0
-        for i in range(size):
-            value += self.memory[self.get_register(R64.rsp) + i] << (i * size)
-        self.set_register(R64.rsp, self.get_register(R64.rsp) + size, clear_upper_bits=False)
+        byte_count = get_op_bit_count(op_size) // 8
+        value = self.read_memory(self.get_register(R64.rsp), op_size)
+        self.set_register(R64.rsp, self.get_register(R64.rsp) + byte_count, clear_upper_bits=False)
         return value
 
     def calc_effective_addr(self, op: MemoryOp) -> int:
@@ -404,16 +401,14 @@ class Machine:
                                 raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
                         self.rip += 1
                     case InstType.pop:
-                        assert op_size is None or op_size == OperandSize.qword, f'{op_size} is not supported'
                         match operand:
                             case RegisterOp():
-                                assert operand.value in R64
-                                value = self.pop_from_stack(8)
-                                self.set_register(operand.value, value, clear_upper_bits=False)
+                                value_on_stack = self.pop_from_stack(get_reg_op_size(operand.value))
+                                self.set_register(operand.value, value_on_stack, clear_upper_bits=False)
                             case MemoryOp():
-                                addr = self.calc_effective_addr(operand)
-                                for i in range(8):
-                                    self.write_memory(addr+i, self.pop_from_stack(1), OperandSize.byte)
+                                assert op_size is not None
+                                value_on_stack = self.pop_from_stack(op_size)
+                                self.write_memory(self.calc_effective_addr(operand), value_on_stack, op_size)
                             case _:
                                 raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.rip += 1
@@ -423,7 +418,7 @@ class Machine:
                     case _:
                         raise NotImplementedError(f'{line}: Unary operator {op} is not implemented')
             case Inst(_, InstType.ret, _, _):
-                self.rip = self.pop_from_stack(8)
+                self.rip = self.pop_from_stack(OperandSize.qword)
             case Inst(_, InstType.exit, _, _):
                 self.running = False
             case _:

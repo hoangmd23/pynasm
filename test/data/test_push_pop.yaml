@@ -108,6 +108,18 @@
       rcx: 123456789
 
 - asm: |
+    mov ax, 12345
+    push ax
+    mov ax, 54534 
+    push ax
+    pop bx
+    pop cx
+  expected:
+    register:
+      rbx: 54534
+      rcx: 12345
+
+- asm: |
     mov rsp, 100
     push 1
     push 12345
@@ -285,6 +297,28 @@
       197: 0
       198: 0
       199: 0
+
+- asm: |
+    mov rsp, 60
+    mov byte [60], 255
+    mov byte [61], 12
+    mov byte [62], 23
+    mov byte [63], 30
+    mov byte [64], 100
+    mov byte [65], 243
+    pop word [160] 
+    pop word [162] 
+    pop word [164]
+  expected:
+    register:
+      rsp: 66
+    memory:
+      160: 255
+      161: 12
+      162: 23
+      163: 30
+      164: 100
+      165: 243
 
 - asm: |
     mov rsp, 60
