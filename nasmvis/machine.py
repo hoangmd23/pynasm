@@ -1,7 +1,7 @@
 from enum import StrEnum
 
 from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp, \
-    Operand
+    Operand, jump_inst
 from nasmvis.parser import Inst, InstType
 
 
@@ -329,6 +329,25 @@ class Machine:
                 raise NotImplementedError(f'Unknown operand type {op}\n')
         return res
 
+    def should_jump(self, inst: InstType) -> bool:
+        match inst:
+            case InstType.jne:
+                return not self.flags[Flags.ZF]
+            case InstType.je:
+                return self.flags[Flags.ZF]
+            case InstType.jbe:
+                return self.flags[Flags.CF] or self.flags[Flags.ZF]
+            case InstType.jae:
+                return not self.flags[Flags.CF]
+            case InstType.jnz:
+                return not self.flags[Flags.ZF]
+            case InstType.jge:
+                return self.flags[Flags.SF] == self.flags[Flags.OF]
+            case InstType.jmp:
+                return True
+            case _:
+                raise NotImplementedError(f'Jump instruction {inst} is not implemented')
+
     def step(self) -> bool:
         if not self.running:
             return False
@@ -355,38 +374,11 @@ class Machine:
             case Inst(line, op, op_size, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
-                    case InstType.jne:
-                        if not self.flags[Flags.ZF]:
+                    case x if x in jump_inst:
+                        if self.should_jump(x):
                             self.rip = operand.value
                         else:
                             self.rip += 1
-                    case InstType.je:
-                        if self.flags[Flags.ZF]:
-                            self.rip = operand.value
-                        else:
-                            self.rip += 1
-                    case InstType.jbe:
-                        if self.flags[Flags.CF] or self.flags[Flags.ZF]:
-                            self.rip = operand.value
-                        else:
-                            self.rip += 1
-                    case InstType.jae:
-                        if not self.flags[Flags.CF]:
-                            self.rip = operand.value
-                        else:
-                            self.rip += 1
-                    case InstType.jnz:
-                        if not self.flags[Flags.ZF]:
-                            self.rip = operand.value
-                        else:
-                            self.rip += 1
-                    case InstType.jge:
-                        if self.flags[Flags.SF] == self.flags[Flags.OF]:
-                            self.rip = operand.value
-                        else:
-                            self.rip += 1
-                    case InstType.jmp:
-                        self.rip = operand.value
                     case InstType.push:
                         match operand:
                             case RegisterOp():
