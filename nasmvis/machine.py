@@ -397,11 +397,7 @@ class Machine:
                             case NumberOp():
                                 self.push_onto_stack(operand.value, 8)
                             case MemoryOp():
-                                addr = operand.displacement
-                                if operand.base is not None:
-                                    addr += self.get_register(operand.base)
-                                if operand.index is not None:
-                                    addr += self.get_register(operand.index) * operand.scale
+                                addr = self.calc_effective_addr(operand)
                                 for i in range(8):
                                     self.push_onto_stack(self.memory[addr+8-i-1], 1)
                             case _:
@@ -415,11 +411,7 @@ class Machine:
                                 value = self.pop_from_stack(8)
                                 self.set_register(operand.value, value, clear_upper_bits=False)
                             case MemoryOp():
-                                addr = operand.displacement
-                                if operand.base is not None:
-                                    addr += self.get_register(operand.base)
-                                if operand.index is not None:
-                                    addr += self.get_register(operand.index) * operand.scale
+                                addr = self.calc_effective_addr(operand)
                                 for i in range(8):
                                     self.write_memory(addr+i, self.pop_from_stack(1), OperandSize.byte)
                             case _:
