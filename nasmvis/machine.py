@@ -397,9 +397,9 @@ class Machine:
                             case NumberOp():
                                 self.push_onto_stack(operand.value, OperandSize.qword)
                             case MemoryOp():
-                                addr = self.calc_effective_addr(operand)
-                                for i in range(8):
-                                    self.push_onto_stack(self.memory[addr+8-i-1], OperandSize.byte)
+                                assert op_size is not None
+                                value = self.read_memory(self.calc_effective_addr(operand), op_size)
+                                self.push_onto_stack(value, op_size)
                             case _:
                                 raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
                         self.rip += 1
