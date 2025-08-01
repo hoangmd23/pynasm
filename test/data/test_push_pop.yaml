@@ -43,6 +43,17 @@
       99: 16
 
 - asm: |
+    mov rsp, 100
+    mov ax, 43525
+    push ax
+  expected:
+    register:
+      rsp: 98
+    memory:
+      98: 0x05
+      99: 0xAA
+
+- asm: |
     mov rsp, 92
     mov byte [92], 128
     mov byte [93], 112
@@ -152,6 +163,28 @@
       97: 0
       98: 0
       99: 0
+
+- asm: |
+    mov rsp, 200
+    mov byte [60], 255
+    mov byte [61], 30
+    mov byte [62], 100
+    mov byte [63], 1
+    mov byte [64], 134
+    mov byte [65], 22
+    push word [60]
+    push word [62]
+    push word [64]
+  expected:
+    register:
+      rsp: 194
+    memory:
+      194: 134
+      195: 22
+      196: 100
+      197: 1
+      198: 255
+      199: 30
 
 - asm: |
     mov rsp, 200
