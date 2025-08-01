@@ -285,11 +285,12 @@ class Machine:
                 raise NotImplementedError(f'Binary operator {op} is not implemented')
         return res, clear_upper_bits
 
-    def push_onto_stack(self, value: int, size: int) -> None:
+    def push_onto_stack(self, value: int, op_size: OperandSize) -> None:
         # TODO: we can also push 2 bytes, e.g. ax
-        self.set_register(R64.rsp, self.get_register(R64.rsp) - size, clear_upper_bits=False)
-        for i in range(size):
-            self.memory[self.get_register(R64.rsp) + i] = value >> (i * size) & 0xFF
+        byte_count = get_op_bit_count(op_size) // 8
+        self.set_register(R64.rsp, self.get_register(R64.rsp) - byte_count, clear_upper_bits=False)
+        for i in range(byte_count):
+            self.memory[self.get_register(R64.rsp) + i] = value >> (i * 8) & 0xFF
 
     def pop_from_stack(self, size: int) -> int:
         # TODO: we can also pop 2 or 4 bytes
@@ -390,16 +391,15 @@ class Machine:
                     case InstType.jmp:
                         self.rip = operand.value
                     case InstType.push:
-                        assert op_size is None or op_size == OperandSize.qword, f'{op_size} is not supported'
                         match operand:
                             case RegisterOp():
-                                self.push_onto_stack(self.get_register(operand.value), 8)
+                                self.push_onto_stack(self.get_register(operand.value), get_reg_op_size(operand.value))
                             case NumberOp():
-                                self.push_onto_stack(operand.value, 8)
+                                self.push_onto_stack(operand.value, OperandSize.qword)
                             case MemoryOp():
                                 addr = self.calc_effective_addr(operand)
                                 for i in range(8):
-                                    self.push_onto_stack(self.memory[addr+8-i-1], 1)
+                                    self.push_onto_stack(self.memory[addr+8-i-1], OperandSize.byte)
                             case _:
                                 raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
                         self.rip += 1
@@ -418,7 +418,7 @@ class Machine:
                                 raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.rip += 1
                     case InstType.call:
-                        self.push_onto_stack(self.rip + 1, 8)
+                        self.push_onto_stack(self.rip + 1, OperandSize.qword)
                         self.rip = operand.value
                     case _:
                         raise NotImplementedError(f'{line}: Unary operator {op} is not implemented')
