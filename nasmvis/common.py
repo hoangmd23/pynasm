@@ -31,7 +31,7 @@ class InstType(StrEnum):
     pop = 'pop'
 
 
-jump_inst = ['jne', 'jbe', 'jae', 'jmp', 'jnz', 'jge', 'je', 'call']
+jump_inst = ['jne', 'jbe', 'jae', 'jmp', 'jnz', 'jge', 'je']
 
 
 class R64(StrEnum):
