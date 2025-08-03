@@ -1,8 +1,8 @@
 from enum import StrEnum
 
-from nasmvis.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp, \
+from nasmsim.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp, \
     Operand, jump_inst
-from nasmvis.parser import Inst, InstType
+from nasmsim.parser import Inst, InstType
 
 
 type RegisterType = R64 | R32 | R16 | RH | RL
@@ -220,7 +220,6 @@ class Machine:
         return self.flags[flag]
 
     def compute_binop(self, dest: int, src: int, op: InstType, dest_op_size: OperandSize, src_op_size: OperandSize) -> tuple[int, bool]:
-        # TODO: support registers of different width, are flags set differently?
         # some operations on a 32-bit register clear the upper 32 bits of the corresponding 64-bit register
         match op:
             case InstType.add | InstType.inc:

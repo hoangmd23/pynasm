@@ -3,9 +3,9 @@ from pathlib import Path
 
 import yaml
 
-from nasmvis.common import OperandSize
-from nasmvis.machine import Machine
-from nasmvis.parser import parse_instructions
+from nasmsim.common import OperandSize
+from nasmsim.machine import Machine
+from nasmsim.parser import parse_instructions
 
 
 def load_test_cases(path: str):

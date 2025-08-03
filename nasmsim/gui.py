@@ -1,8 +1,6 @@
 from pyray import *
 
-from nasmvis.common import R64
-from nasmvis.machine import Machine
-
+from nasmsim.machine import Machine
 
 BLOCK_HEIGHT = 1050
 BLOCK_Y = 100
