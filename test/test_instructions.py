@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import yaml
@@ -18,13 +19,16 @@ def prepare_machine(code: str) -> Machine:
     return machine
 
 
-def execute_tests(test_data_path: str):
+def execute_tests(test_data_path: str, update_flags=False):
+    print(f'Executing tests on {test_data_path}')
     test_cases = load_test_cases(test_data_path)
     for case_id, tc in enumerate(test_cases):
         asm = tc['asm']
         expected = tc['expected']
 
         machine = prepare_machine(asm)
+        if update_flags:
+            machine.set_flags(update_flags)
         while machine.step():
             pass
 
@@ -48,16 +52,8 @@ def execute_tests(test_data_path: str):
                     raise NotImplementedError(f'{exp_type} is not supported in expected values')
 
 
-def test_mov():
-    test_data_path = 'test_mov.yaml'
-    execute_tests(test_data_path)
-
-
-def test_add():
-    test_data_path = 'test_add.yaml'
-    execute_tests(test_data_path)
-
-
-def test_sub():
-    test_data_path = 'test_sub.yaml'
-    execute_tests(test_data_path)
+def run_all_tests():
+    for f in os.listdir('test/data'):
+        execute_tests(f, False)
+        if f == 'test_jmp.yaml':
+            execute_tests(f, True)
