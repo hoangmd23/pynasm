@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import NamedTuple
 
-from nasmsim.common import register_names, InstType
+from pynasm.common import register_names, InstType
 
 
 class LexerError(Exception):

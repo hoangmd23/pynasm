@@ -1,6 +1,6 @@
 from pyray import *
 
-from nasmsim.machine import Machine
+from pynasm.machine import Machine
 
 BLOCK_HEIGHT = 1050
 BLOCK_Y = 100
@@ -32,7 +32,7 @@ def draw_register(x: int, y: int, name: str, value: str):
 
 
 def run(code: str, machine: Machine):
-    init_window(2000, 1200, "Machine")
+    init_window(2000, 1200, "Pynasm")
     set_target_fps(30)
 
     step_btn_rect = Rectangle(20, 0, 150, 60)

@@ -1,7 +1,7 @@
 import sys
 
-from nasmsim.machine import Machine
-from nasmsim.parser import parse_instructions
+from pynasm.machine import Machine
+from pynasm.parser import parse_instructions
 
 
 def print_help():
@@ -18,7 +18,7 @@ def main():
 
     asm_path = sys.argv[1]
 
-    from nasmsim.gui import run
+    from pynasm.gui import run
 
     with open(asm_path, 'r') as f:
         code = f.read()

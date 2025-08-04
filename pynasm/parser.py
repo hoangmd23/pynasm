@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 
-from nasmsim.common import Operand, RegisterOp, MemoryOp, register_names, InstType, OperandSize, Directive, jump_inst, \
+from pynasm.common import Operand, RegisterOp, MemoryOp, register_names, InstType, OperandSize, Directive, jump_inst, \
     NumberOp
-from nasmsim.lexer import Lexer, TokenType
+from pynasm.lexer import Lexer, TokenType
 
 type ParserResult = tuple[int | None, list[Inst | None], bytearray, dict[str, int], int]
 ENTRYPOINT = '_start'
