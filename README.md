@@ -1,5 +1,5 @@
 # Pynasm
-A visual step-through debugger for NASM x86-64 programs
+Python-based simulator with a GUI for a subset of NASM x86-64 instructions
 
 ---
 
