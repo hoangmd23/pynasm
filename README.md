@@ -1,13 +1,11 @@
 # Pynasm
 Python-based simulator with a GUI for a subset of NASM x86-64 instructions
 
----
-
 ## Overview
 
-**Pynasm** is a Python-based graphical tool that allows you to simulate the execution of NASM x86-64 assembly code. It helps you visualize register states and memory layout as you step through each instruction. 
+Pynasm is a Python-based graphical tool that allows you to simulate the execution of NASM x86-64 assembly code. It helps you visualize register states and memory layout as you step through each instruction.
 I created this project for educational purposes, to better understand assembly. As such, it is not optimized and not 100% accurate in all cases. Use it as a learning aid, not a production-grade emulator.
----
+
 
 ## Features
 
@@ -25,19 +23,18 @@ The app currently supports a limited subset of NASM x86-64 instructions:
 - `jmp`, `je`, `jne`, `jnz`, `jbe`, `jae`, `jge`
 - `call`, `ret`
 
----
 
 ## Installation
 
 1. Install dependencies from `requirements.txt`:
    ```
    pip install -r requirements.txt
+   ```
 
 2. Run the app with your NASM file:
    ```
    python app.py path_to_file.asm
-
----
+   ```
 
 ## Example
 
