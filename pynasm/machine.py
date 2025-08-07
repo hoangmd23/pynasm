@@ -1,8 +1,9 @@
 from pynasm.common import R64, RegisterOp, MemoryOp, OperandSize, NumberOp, \
     Operand, jump_inst, OPERAND_SIZE_MAX_VALUE, \
     OPERAND_SIZE_IN_BITS
-from pynasm.cpu import Cpu, get_op_size_in_bits, get_sign_bit, get_op_size_max_value, get_inst_operands_sizes, \
-    get_op_size_by_reg_name
+from pynasm.cpu import Cpu, get_sign_bit, get_op_size_max_value, get_inst_operands_sizes, \
+    get_op_size_by_reg_name, get_op_size_in_bytes
+from pynasm.memory import Memory
 from pynasm.parser import Inst, InstType
 
 
@@ -16,46 +17,33 @@ MEMORY_CAPACITY = 1024
 class Machine:
     def __init__(self):
         self.inst: list[Inst | None] = []
-        self.memory = bytearray(MEMORY_CAPACITY)
+        self.memory: Memory = Memory(MEMORY_CAPACITY)
         self.cpu = Cpu()
-        # self.data_labels: dict[str, int] = {}
         self.entrypoint: int = -1
         self.running: bool = False
+        self.data: bytearray | None = None
 
     def load_inst_and_data(self, entrypoint: int, inst: list[Inst], data: bytearray, data_labels: dict[str, int], bss_size: int) -> None:
         self.inst = inst
-        self.memory = bytearray(MEMORY_CAPACITY)
-        self.memory[:len(data)] = data
-        # self.data_labels = data_labels
+        self.data = data
         self.entrypoint = entrypoint
         self.reset()
 
     def reset(self) -> None:
-        self.cpu.reset(self.entrypoint, len(self.memory))
+        self.cpu.reset(self.entrypoint, self.memory.capacity)
+        self.memory.reset(self.data)
         self.running = True
 
-    def read_memory(self, addr: int, op_size: OperandSize) -> int:
-        res = 0
-        for i in range(get_op_size_in_bits(op_size) // 8):
-            res += self.memory[addr+i] * 256**i
-        return res
-
-    def write_memory(self, addr: int, value: int, op_size: OperandSize):
-        for i in range(get_op_size_in_bits(op_size) // 8):
-            self.memory[addr + i] = value % 256
-            value //= 256
-
     def push_onto_stack(self, value: int, op_size: OperandSize) -> None:
-        byte_count = get_op_size_in_bits(op_size) // 8
+        byte_count = get_op_size_in_bytes(op_size)
         self.cpu.set_register(R64.rsp, self.cpu.get_register(R64.rsp) - byte_count, clear_upper_bits=False)
-        for i in range(byte_count):
-            self.memory[self.cpu.get_register(R64.rsp) + i] = value >> (i * 8) & 0xFF
+        self.memory.write(self.cpu.get_register(R64.rsp), value, op_size)
 
     def pop_from_stack(self, op_size: OperandSize) -> int:
-        if self.cpu.get_register(R64.rsp) >= len(self.memory):
+        if self.cpu.get_register(R64.rsp) >= self.memory.capacity:
             raise MachineException(f'Stack underflow')
-        byte_count = get_op_size_in_bits(op_size) // 8
-        value = self.read_memory(self.cpu.get_register(R64.rsp), op_size)
+        byte_count = get_op_size_in_bytes(op_size)
+        value = self.memory.read(self.cpu.get_register(R64.rsp), op_size)
         self.cpu.set_register(R64.rsp, self.cpu.get_register(R64.rsp) + byte_count, clear_upper_bits=False)
         return value
 
@@ -84,7 +72,7 @@ class Machine:
                     else:
                         res %= get_op_size_max_value(op_size)
             case MemoryOp() as mem_op:
-                res = self.read_memory(self.calc_effective_addr(mem_op), op_size)
+                res = self.memory.read(self.calc_effective_addr(mem_op), op_size)
             case _:
                 raise NotImplementedError(f'Unknown operand type {op}\n')
         return res
@@ -111,7 +99,7 @@ class Machine:
                 if isinstance(dest, RegisterOp):
                     self.cpu.set_register(dest.value, res, clear_upper_bits)
                 else:
-                    self.write_memory(self.calc_effective_addr(dest), res, dest_op_size)
+                    self.memory.write(self.calc_effective_addr(dest), res, dest_op_size)
             case Inst(line, op, op_size, ops) if len(ops) == 1:
                 operand = ops[0]
                 match op:
@@ -128,7 +116,7 @@ class Machine:
                                 self.push_onto_stack(operand.value, OperandSize.qword)
                             case MemoryOp():
                                 assert op_size is not None
-                                value = self.read_memory(self.calc_effective_addr(operand), op_size)
+                                value = self.memory.read(self.calc_effective_addr(operand), op_size)
                                 self.push_onto_stack(value, op_size)
                             case _:
                                 raise NotImplementedError(f'{line}: Push is not implemented for {operand}')
@@ -141,7 +129,7 @@ class Machine:
                             case MemoryOp():
                                 assert op_size is not None
                                 value_on_stack = self.pop_from_stack(op_size)
-                                self.write_memory(self.calc_effective_addr(operand), value_on_stack, op_size)
+                                self.memory.write(self.calc_effective_addr(operand), value_on_stack, op_size)
                             case _:
                                 raise NotImplementedError(f'{line}: Pop is not implemented for {operand}')
                         self.cpu.rip += 1

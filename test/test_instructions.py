@@ -42,7 +42,7 @@ def execute_tests(test_data_path: str, update_flags=False):
                         assert actual_value == exp_value, f'Test case {case_id} has failed\n{asm}\nRegister {reg}\nActual value: {actual_value}\nExpected value: {exp_value}'
                 case 'memory':
                     for addr, exp_value in exp.items():
-                        actual_value = machine.read_memory(addr, OperandSize.byte)
+                        actual_value = machine.memory.read(addr, OperandSize.byte)
                         assert actual_value == exp_value, f'Test case {case_id} has failed\n{asm}\nMemory at address {addr}\nActual value: {actual_value}\nExpected value: {exp_value}'
                 case 'flags':
                     for flag, exp_value in exp.items():
