@@ -130,7 +130,7 @@ class Register:
         return f'{self.r64} = {self.value}'
 
 
-Registers = [
+CPU_REGISTERS = [
     Register(r64=R64.rax, r32=R32.eax,r16=R16.ax,rh=RH.ah,rl=RL.al),
     Register(r64=R64.rbx, r32=R32.ebx,r16=R16.bx,rh=RH.bh,rl=RL.bl),
     Register(r64=R64.rcx, r32=R32.ecx,r16=R16.cx,rh=RH.ch,rl=RL.cl),
@@ -149,8 +149,9 @@ Registers = [
     Register(r64=R64.r15, r32=R32.r15d,r16=R16.r15w,rh=None,rl=RL.r15b),
 ]
 
+type RegisterType = R64 | R32 | R16 | RH | RL
 
-register_names = set(name for r in Registers for name in (r.r64, r.r32, r.r16, r.rh, r.rl))
+register_names = set(name for r in CPU_REGISTERS for name in (r.r64, r.r32, r.r16, r.rh, r.rl))
 
 
 class OperandSize(StrEnum):
@@ -158,6 +159,32 @@ class OperandSize(StrEnum):
     word = 'word'
     dword = 'dword'
     qword = 'qword'
+
+
+OPERAND_SIZE_IN_BYTES: dict[OperandSize, int] = {
+    OperandSize.byte: 1,
+    OperandSize.word: 2,
+    OperandSize.dword: 4,
+    OperandSize.qword: 8,
+}
+
+OPERAND_SIZE_IN_BITS: dict[OperandSize, int] = {k:v*8 for k, v in OPERAND_SIZE_IN_BYTES.items()}
+OPERAND_SIZE_MAX_VALUE: dict[OperandSize, int] = {k: 2**(8*v) for k, v in OPERAND_SIZE_IN_BYTES.items()}
+
+REGISTERS_OPERAND_SIZE: dict[RegisterType, OperandSize] = {}
+REGISTERS_OPERAND_SIZE.update({x: OperandSize.byte for x in RL}) # type: ignore
+REGISTERS_OPERAND_SIZE.update({x: OperandSize.byte for x in RH}) # type: ignore
+REGISTERS_OPERAND_SIZE.update({x: OperandSize.word for x in R16}) # type: ignore
+REGISTERS_OPERAND_SIZE.update({x: OperandSize.dword for x in R32}) # type: ignore
+REGISTERS_OPERAND_SIZE.update({x: OperandSize.qword for x in R64}) # type: ignore
+
+
+NAME_TO_REGISTER: dict[str, RegisterType] = {}
+NAME_TO_REGISTER.update({x: RL(x) for x in RL})
+NAME_TO_REGISTER.update({x: RH(x) for x in RH})
+NAME_TO_REGISTER.update({x: R16(x) for x in R16})
+NAME_TO_REGISTER.update({x: R32(x) for x in R32})
+NAME_TO_REGISTER.update({x: R64(x) for x in R64})
 
 
 @dataclass

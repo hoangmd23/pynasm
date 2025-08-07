@@ -1,11 +1,9 @@
 from enum import StrEnum
 
-from pynasm.common import Register, Registers, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp, \
-    Operand, jump_inst
+from pynasm.common import Register, CPU_REGISTERS, R64, RL, R32, R16, RH, RegisterOp, MemoryOp, OperandSize, NumberOp, \
+    Operand, jump_inst, REGISTERS_OPERAND_SIZE, OPERAND_SIZE_MAX_VALUE, \
+    OPERAND_SIZE_IN_BITS, RegisterType, NAME_TO_REGISTER
 from pynasm.parser import Inst, InstType
-
-
-type RegisterType = R64 | R32 | R16 | RH | RL
 
 
 class MachineException(Exception):
@@ -36,14 +34,14 @@ FlagsRegister = [
 
 
 MEMORY_CAPACITY = 1024
-R64_WIDTH = 64
-R64_MAX_VALUE = 2 ** R64_WIDTH
-R32_WIDTH = 32
-R32_MAX_VALUE = 2 ** R32_WIDTH
-R16_WIDTH = 16
-R16_MAX_VALUE = 2 ** R16_WIDTH
-R8_WIDTH = 8
-R8_MAX_VALUE = 2 ** R8_WIDTH
+
+
+def get_op_size_in_bits(op_size: OperandSize) -> int:
+    return OPERAND_SIZE_IN_BITS[op_size]
+
+
+def get_op_size_max_value(op_size: OperandSize) -> int:
+    return OPERAND_SIZE_MAX_VALUE[op_size]
 
 
 def get_sign_bit(value: int, reg_width: int):
@@ -51,73 +49,21 @@ def get_sign_bit(value: int, reg_width: int):
 
 
 def get_reg_by_name(name: str) -> RegisterType:
-    if name in R64:
-        reg = R64(name)
-    elif name in R32:
-        reg = R32(name)
-    elif name in R16:
-        reg = R16(name)
-    elif name in RH:
-        reg = RH(name)
-    elif name in RL:
-        reg = RL(name)
-    else:
-        raise MachineException(f'Unknown register: {name}')
-    return reg
+    return NAME_TO_REGISTER[name]
 
 
-def get_reg_op_size(name: str) -> OperandSize:
-    if name in R64:
-        op_size = OperandSize.qword
-    elif name in R32:
-        op_size = OperandSize.dword
-    elif name in R16:
-        op_size = OperandSize.word
-    elif name in RH:
-        op_size = OperandSize.byte
-    elif name in RL:
-        op_size = OperandSize.byte
-    else:
-        raise MachineException(f'Unknown register: {name}')
-    return op_size
-
-
-def get_op_bit_count(op_size: OperandSize):
-    match op_size:
-        case OperandSize.byte:
-            return R8_WIDTH
-        case OperandSize.word:
-            return R16_WIDTH
-        case OperandSize.dword:
-            return R32_WIDTH
-        case OperandSize.qword:
-            return R64_WIDTH
-        case _:
-            assert False
-
-
-def get_op_max_value(op: OperandSize):
-    match op:
-        case OperandSize.byte:
-            return R8_MAX_VALUE
-        case OperandSize.word:
-            return R16_MAX_VALUE
-        case OperandSize.dword:
-            return R32_MAX_VALUE
-        case OperandSize.qword:
-            return R64_MAX_VALUE
-        case _:
-            assert False
+def get_op_size_by_reg_name(name: str) -> OperandSize:
+    return REGISTERS_OPERAND_SIZE[get_reg_by_name(name)]
 
 
 def get_inst_operands_sizes(dest: Operand, src: Operand, op_size: OperandSize | None) -> tuple[OperandSize, OperandSize]:
     if isinstance(dest, RegisterOp):
-        dest_op_size = get_reg_op_size(dest.value)
+        dest_op_size = get_op_size_by_reg_name(dest.value)
     else:
         dest_op_size = op_size
 
     if isinstance(src, RegisterOp):
-        src_op_size = get_reg_op_size(src.value)
+        src_op_size = get_op_size_by_reg_name(src.value)
     else:
         src_op_size = op_size
 
@@ -131,16 +77,20 @@ def get_inst_operands_sizes(dest: Operand, src: Operand, op_size: OperandSize | 
     return dest_op_size, src_op_size
 
 
+def get_wrapped_value(reg: RegisterType, value: int) -> int:
+    return value % OPERAND_SIZE_MAX_VALUE[REGISTERS_OPERAND_SIZE[reg]]
+
+
 class Machine:
     def __init__(self):
         self.inst: list[Inst | None] = []
         self.rip: int = 0
 
-        self.reg64: dict[R64, Register] = { r.r64: r for r in Registers }
-        self.reg32: dict[R32, Register] = { r.r32: r for r in Registers }
-        self.reg16: dict[R16, Register] = { r.r16: r for r in Registers }
-        self.reg8h: dict[RH, Register] = { r.rh: r for r in Registers if r.rh is not None }
-        self.reg8l: dict[RL, Register] = { r.rl: r for r in Registers }
+        self.reg64: dict[R64, Register] = {r.r64: r for r in CPU_REGISTERS}
+        self.reg32: dict[R32, Register] = {r.r32: r for r in CPU_REGISTERS}
+        self.reg16: dict[R16, Register] = {r.r16: r for r in CPU_REGISTERS}
+        self.reg8h: dict[RH, Register] = {r.rh: r for r in CPU_REGISTERS if r.rh is not None}
+        self.reg8l: dict[RL, Register] = {r.rl: r for r in CPU_REGISTERS}
 
         self.flags: dict[Flags, bool] = {x: False for x in FlagsRegister if x is not None}
         self.memory = bytearray(MEMORY_CAPACITY)
@@ -172,19 +122,22 @@ class Machine:
     def set_register(self, reg: R64 | R32 | R16 | RH | RL | str, value: int, clear_upper_bits: bool):
         if isinstance(reg, str):
             reg = get_reg_by_name(reg)
+
+        wrapped_value = get_wrapped_value(reg, value)
+
         match reg:
             case R64():
-                self.reg64[reg].value = value % R64_MAX_VALUE
+                self.reg64[reg].value = wrapped_value
             case R32():
                 if clear_upper_bits:
                     self.reg32[reg].value = 0
-                self.reg32[reg].value = (self.reg32[reg].value & 0xFFFFFFFF00000000) | (value % R32_MAX_VALUE)
+                self.reg32[reg].value = (self.reg32[reg].value & 0xFFFFFFFF00000000) | wrapped_value
             case R16():
-                self.reg16[reg].value = (self.reg16[reg].value & 0xFFFFFFFFFFFF0000) | (value % R16_MAX_VALUE)
+                self.reg16[reg].value = (self.reg16[reg].value & 0xFFFFFFFFFFFF0000) | wrapped_value
             case RH():
-                self.reg8h[reg].value = (self.reg8h[reg].value & 0xFFFFFFFFFFFF00FF) | ((value % R8_MAX_VALUE) << 8)
+                self.reg8h[reg].value = (self.reg8h[reg].value & 0xFFFFFFFFFFFF00FF) | (wrapped_value << 8)
             case RL():
-                self.reg8l[reg].value = (self.reg8l[reg].value & 0xFFFFFFFFFFFFFF00) | (value % R8_MAX_VALUE)
+                self.reg8l[reg].value = (self.reg8l[reg].value & 0xFFFFFFFFFFFFFF00) | wrapped_value
             case _:
                 raise NotImplementedError(f'{reg.__class__} is not implemented for set_register')
 
@@ -207,12 +160,12 @@ class Machine:
 
     def read_memory(self, addr: int, op_size: OperandSize) -> int:
         res = 0
-        for i in range(get_op_bit_count(op_size) // 8):
+        for i in range(get_op_size_in_bits(op_size) // 8):
             res += self.memory[addr+i] * 256**i
         return res
 
     def write_memory(self, addr: int, value: int, op_size: OperandSize):
-        for i in range(get_op_bit_count(op_size) // 8):
+        for i in range(get_op_size_in_bits(op_size) // 8):
             self.memory[addr + i] = value % 256
             value //= 256
 
@@ -224,8 +177,8 @@ class Machine:
         match op:
             case InstType.add | InstType.inc:
                 assert dest_op_size == src_op_size
-                reg_width = get_op_bit_count(dest_op_size)
-                max_value = get_op_max_value(dest_op_size)
+                reg_width = get_op_size_in_bits(dest_op_size)
+                max_value = get_op_size_max_value(dest_op_size)
                 res = dest + src
                 res_sign = get_sign_bit(res, reg_width)
                 dest_sign = get_sign_bit(dest, reg_width)
@@ -241,8 +194,8 @@ class Machine:
                 clear_upper_bits = True
             case InstType.xor:
                 assert dest_op_size == src_op_size
-                reg_width = get_op_bit_count(dest_op_size)
-                max_value = get_op_max_value(dest_op_size)
+                reg_width = get_op_size_in_bits(dest_op_size)
+                max_value = get_op_size_max_value(dest_op_size)
                 res = dest ^ src
                 self.flags[Flags.ZF] = res % max_value == 0
                 self.flags[Flags.SF] = get_sign_bit(res, reg_width) == 1
@@ -253,7 +206,7 @@ class Machine:
                 res = src
                 clear_upper_bits = True
             case InstType.movsx:
-                reg_width = get_op_bit_count(dest_op_size)
+                reg_width = get_op_size_in_bits(dest_op_size)
                 # TODO: currently only supports 1 byte source
                 sign = get_sign_bit(src, 8)
                 res = src
@@ -263,8 +216,8 @@ class Machine:
                 clear_upper_bits = True
             case InstType.cmp | InstType.sub | InstType.dec:
                 assert dest_op_size == src_op_size
-                reg_width = get_op_bit_count(dest_op_size)
-                max_value = get_op_max_value(dest_op_size)
+                reg_width = get_op_size_in_bits(dest_op_size)
+                max_value = get_op_size_max_value(dest_op_size)
                 res = dest - src
                 res_sign = get_sign_bit(res, reg_width)
                 dest_sign = get_sign_bit(dest, reg_width)
@@ -285,7 +238,7 @@ class Machine:
         return res, clear_upper_bits
 
     def push_onto_stack(self, value: int, op_size: OperandSize) -> None:
-        byte_count = get_op_bit_count(op_size) // 8
+        byte_count = get_op_size_in_bits(op_size) // 8
         self.set_register(R64.rsp, self.get_register(R64.rsp) - byte_count, clear_upper_bits=False)
         for i in range(byte_count):
             self.memory[self.get_register(R64.rsp) + i] = value >> (i * 8) & 0xFF
@@ -293,7 +246,7 @@ class Machine:
     def pop_from_stack(self, op_size: OperandSize) -> int:
         if self.get_register(R64.rsp) >= len(self.memory):
             raise MachineException(f'Stack underflow')
-        byte_count = get_op_bit_count(op_size) // 8
+        byte_count = get_op_size_in_bits(op_size) // 8
         value = self.read_memory(self.get_register(R64.rsp), op_size)
         self.set_register(R64.rsp, self.get_register(R64.rsp) + byte_count, clear_upper_bits=False)
         return value
@@ -315,13 +268,13 @@ class Machine:
                 if inst in [InstType.add, InstType.sub, InstType.cmp, InstType.xor]:
                     # max supported immediate value for add is 32-bit value
                     if op_size == OperandSize.qword:
-                        res %= R32_MAX_VALUE
+                        res %= OPERAND_SIZE_MAX_VALUE[OperandSize.dword]
                         # sign extend
-                        if get_sign_bit(res, R32_WIDTH) == 1:
-                            for j in range(R64_WIDTH - 32):
+                        if get_sign_bit(res, OPERAND_SIZE_IN_BITS[OperandSize.dword]) == 1:
+                            for j in range(OPERAND_SIZE_IN_BITS[OperandSize.qword] - 32):
                                 res |= 1 << (j + 32)
                     else:
-                        res %= get_op_max_value(op_size)
+                        res %= get_op_size_max_value(op_size)
             case MemoryOp() as mem_op:
                 res = self.read_memory(self.calc_effective_addr(mem_op), op_size)
             case _:
@@ -381,7 +334,7 @@ class Machine:
                     case InstType.push:
                         match operand:
                             case RegisterOp():
-                                self.push_onto_stack(self.get_register(operand.value), get_reg_op_size(operand.value))
+                                self.push_onto_stack(self.get_register(operand.value), get_op_size_by_reg_name(operand.value))
                             case NumberOp():
                                 self.push_onto_stack(operand.value, OperandSize.qword)
                             case MemoryOp():
@@ -394,7 +347,7 @@ class Machine:
                     case InstType.pop:
                         match operand:
                             case RegisterOp():
-                                value_on_stack = self.pop_from_stack(get_reg_op_size(operand.value))
+                                value_on_stack = self.pop_from_stack(get_op_size_by_reg_name(operand.value))
                                 self.set_register(operand.value, value_on_stack, clear_upper_bits=False)
                             case MemoryOp():
                                 assert op_size is not None
