@@ -28,7 +28,7 @@ def execute_tests(test_data_path: str, update_flags=False):
 
         machine = prepare_machine(asm)
         if update_flags:
-            machine.set_flags(update_flags)
+            machine.cpu.set_flags(update_flags)
         while machine.step():
             pass
 
@@ -38,7 +38,7 @@ def execute_tests(test_data_path: str, update_flags=False):
                     for reg, exp_value in exp.items():
                         if isinstance(exp_value, str) and exp_value.startswith('0x'):
                             exp_value = int(exp_value, 16)
-                        actual_value = machine.get_register(reg)
+                        actual_value = machine.cpu.get_register(reg)
                         assert actual_value == exp_value, f'Test case {case_id} has failed\n{asm}\nRegister {reg}\nActual value: {actual_value}\nExpected value: {exp_value}'
                 case 'memory':
                     for addr, exp_value in exp.items():
@@ -46,7 +46,7 @@ def execute_tests(test_data_path: str, update_flags=False):
                         assert actual_value == exp_value, f'Test case {case_id} has failed\n{asm}\nMemory at address {addr}\nActual value: {actual_value}\nExpected value: {exp_value}'
                 case 'flags':
                     for flag, exp_value in exp.items():
-                        actual_value = machine.read_flag(flag)
+                        actual_value = machine.cpu.read_flag(flag)
                         assert actual_value == exp_value, f'Test case {case_id} has failed\n{asm}\nFlag {flag}\nActual value: {actual_value}\nExpected value: {exp_value}'
                 case _:
                     raise NotImplementedError(f'{exp_type} is not supported in expected values')
