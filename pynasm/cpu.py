@@ -2,7 +2,7 @@ from enum import StrEnum
 
 from pynasm.common import Register, CPU_REGISTERS, R64, RL, R32, R16, RH, RegisterOp, OperandSize, Operand, \
     REGISTERS_OPERAND_SIZE, OPERAND_SIZE_MAX_VALUE, \
-    OPERAND_SIZE_IN_BITS, RegisterType, NAME_TO_REGISTER
+    OPERAND_SIZE_IN_BITS, RegisterType, NAME_TO_REGISTER, OPERAND_SIZE_IN_BYTES
 from pynasm.parser import InstType
 
 
@@ -35,6 +35,9 @@ FlagsRegister = [
 
 def get_op_size_in_bits(op_size: OperandSize) -> int:
     return OPERAND_SIZE_IN_BITS[op_size]
+
+def get_op_size_in_bytes(op_size: OperandSize) -> int:
+    return OPERAND_SIZE_IN_BYTES[op_size]
 
 
 def get_op_size_max_value(op_size: OperandSize) -> int:
